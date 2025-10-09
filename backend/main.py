@@ -66,20 +66,40 @@ async def download_file(filename: str):
     Servir archivos descargados
     """
     try:
-        file_path = DOWNLOADS_DIR / filename
+        print(f"📁 Solicitando archivo: {filename}")
+        
+        # Decodificar el nombre del archivo
+        import urllib.parse
+        decoded_filename = urllib.parse.unquote(filename)
+        print(f"📁 Archivo decodificado: {decoded_filename}")
+        
+        file_path = DOWNLOADS_DIR / decoded_filename
+        print(f"📁 Ruta completa: {file_path}")
+        
         if file_path.exists() and file_path.is_file():
+            file_size = file_path.stat().st_size
+            print(f"✅ Archivo encontrado, tamaño: {file_size} bytes")
+            
             return FileResponse(
                 path=str(file_path),
-                filename=filename,
+                filename=decoded_filename,
                 media_type='audio/mpeg',
                 headers={
-                    'Content-Disposition': f'attachment; filename="{filename}"',
-                    'Accept-Ranges': 'bytes'
+                    'Content-Disposition': f'attachment; filename="{decoded_filename}"',
+                    'Accept-Ranges': 'bytes',
+                    'Content-Length': str(file_size)
                 }
             )
         else:
-            raise HTTPException(404, "Archivo no encontrado")
+            print(f"❌ Archivo no encontrado: {file_path}")
+            raise HTTPException(404, f"Archivo no encontrado: {decoded_filename}")
+            
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Error sirviendo archivo: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"Error sirviendo archivo: {str(e)}")
 
 @app.get("/test-audio")
