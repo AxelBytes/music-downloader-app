@@ -74,6 +74,15 @@ export default function MusicDownloader() {
     loadDownloadedFiles();
   }, []);
 
+  // Funciones auxiliares
+  const normalizeUrl = (url: string): string => {
+    // Si la URL no tiene extensión reconocible, agregar .mp3
+    if (!url.match(/\.(mp3|mp4|wav|m4a|aac)$/i)) {
+      return url + '.mp3';
+    }
+    return url;
+  };
+
   // Funciones
   const loadDownloadedFiles = async () => {
     try {
@@ -254,16 +263,15 @@ export default function MusicDownloader() {
       });
 
       // Para archivos reales descargados, usar la URL del servidor
-      const realAudioUri = `${API_URL}/download/${encodeURIComponent(file.filename)}`;
-      console.log('Reproduciendo archivo real:', realAudioUri);
+      const realAudioUri = normalizeUrl(`${API_URL}/download/${encodeURIComponent(file.filename)}`);
+      console.log('🎵 Reproduciendo archivo real:', realAudioUri);
       
-      // TEMPORAL: Usar archivo de prueba para debug
-      const testAudioUri = `${API_URL}/test-audio`;
-      console.log('Usando archivo de prueba:', testAudioUri);
-      
-      // Crear objeto de sonido con archivo de prueba
+      // SOLUCIÓN DEFINITIVA: Agregar overrideFileExtensionAndroid
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: testAudioUri },
+        { 
+          uri: realAudioUri,
+          overrideFileExtensionAndroid: 'mp3'  // ¡ESTO ARREGLA EL ERROR!
+        },
         { shouldPlay: true },
         (status) => {
           if (status.isLoaded) {
