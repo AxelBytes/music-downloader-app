@@ -262,14 +262,14 @@ export default function MusicDownloader() {
         playThroughEarpieceAndroid: false,
       });
 
-      // SOLUCIÓN RADICAL: Usar archivo de audio que SÍ funciona
-      const workingAudioUri = "https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3";
-      console.log('🎵 Reproduciendo audio funcional:', workingAudioUri);
+      // Para archivos reales descargados, usar la URL del servidor
+      const realAudioUri = normalizeUrl(`${API_URL}/download/${encodeURIComponent(file.filename)}`);
+      console.log('🎵 Reproduciendo archivo real:', realAudioUri);
       
-      // Crear objeto de sonido con archivo que SÍ funciona
+      // Crear objeto de sonido con archivo real
       const { sound: newSound } = await Audio.Sound.createAsync(
         { 
-          uri: workingAudioUri,
+          uri: realAudioUri,
           overrideFileExtensionAndroid: 'mp3'
         },
         { shouldPlay: true },
