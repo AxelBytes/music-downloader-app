@@ -85,18 +85,42 @@ async def download_file(filename: str):
 @app.get("/test-audio")
 async def test_audio():
     """
-    Servir archivo de audio de prueba
+    Servir archivo de audio de prueba real
     """
-    # Crear un archivo de prueba simple
+    import requests
+    
     test_file = DOWNLOADS_DIR / "test-audio.mp3"
     
     if not test_file.exists():
-        # Crear un MP3 muy simple
-        mp3_simple = bytearray([
-            0xFF, 0xFB, 0x90, 0x00,  # MP3 header
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Datos mínimos
-        ])
-        test_file.write_bytes(mp3_simple)
+        try:
+            # Descargar un archivo MP3 real de prueba desde internet
+            print("📥 Descargando archivo MP3 de prueba...")
+            response = requests.get("https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3", timeout=10)
+            
+            if response.status_code == 200:
+                test_file.write_bytes(response.content)
+                print("✅ Archivo MP3 de prueba descargado")
+            else:
+                # Si falla, crear un archivo más realista
+                print("⚠️ Fallo descarga, creando archivo local...")
+                # Crear un MP3 más realista con más datos
+                mp3_data = bytearray([
+                    # ID3v2 header
+                    0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    # MP3 frame header
+                    0xFF, 0xFB, 0x90, 0x00,
+                ])
+                
+                # Agregar mucho más datos para simular audio real
+                for _ in range(10000):  # ~40 segundos de datos
+                    mp3_data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+                
+                test_file.write_bytes(mp3_data)
+                
+        except Exception as e:
+            print(f"❌ Error creando archivo de prueba: {e}")
+            # Crear archivo mínimo
+            test_file.write_bytes(b'\xFF\xFB\x90\x00' + b'\x00' * 1000)
     
     return FileResponse(
         path=str(test_file),
