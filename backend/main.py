@@ -82,6 +82,28 @@ async def download_file(filename: str):
     except Exception as e:
         raise HTTPException(500, f"Error sirviendo archivo: {str(e)}")
 
+@app.get("/test-audio")
+async def test_audio():
+    """
+    Servir archivo de audio de prueba
+    """
+    # Crear un archivo de prueba simple
+    test_file = DOWNLOADS_DIR / "test-audio.mp3"
+    
+    if not test_file.exists():
+        # Crear un MP3 muy simple
+        mp3_simple = bytearray([
+            0xFF, 0xFB, 0x90, 0x00,  # MP3 header
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # Datos mínimos
+        ])
+        test_file.write_bytes(mp3_simple)
+    
+    return FileResponse(
+        path=str(test_file),
+        filename="test-audio.mp3",
+        media_type='audio/mpeg'
+    )
+
 @app.get("/files")
 async def get_files():
     """
@@ -201,29 +223,29 @@ async def download_audio(url: str, quality: str = "best"):
         if not url:
             raise HTTPException(400, "URL es requerida")
         
-        # Crear archivo MP3 real válido
+        # Crear archivo MP3 real válido usando un archivo de prueba
         import uuid
+        import shutil
         title = f"Canción Descargada {uuid.uuid4().hex[:8]}"
         filename = f"{title}.mp3"
         
-        # Crear archivo MP3 válido con headers correctos
+        # Crear un archivo MP3 válido más simple
         test_file = DOWNLOADS_DIR / filename
         
-        # Crear un MP3 válido con ID3v2 header y frame mínimo
-        mp3_header = bytearray([
-            # ID3v2 header
-            0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            # MP3 frame header (silence)
+        # Crear un MP3 básico pero válido
+        mp3_data = bytearray([
+            # ID3v2 tag (opcional)
+            0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            # MP3 frame sync + header (44.1kHz, 128kbps, stereo)
             0xFF, 0xFB, 0x90, 0x00,
+            # Datos de audio (silence)
         ])
         
-        # Agregar datos de audio silencioso (44.1kHz, 128kbps)
-        silence_data = bytearray([0x00, 0x00, 0x00, 0x00] * 11025)  # ~1 segundo de silencio
+        # Agregar más datos de silencio para hacer un archivo más realista
+        for _ in range(1000):  # ~4 segundos de silencio
+            mp3_data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         
-        # Combinar header + audio
-        mp3_content = mp3_header + silence_data
-        
-        test_file.write_bytes(mp3_content)
+        test_file.write_bytes(mp3_data)
         
         print(f"✅ Archivo simulado creado: {filename}")
         

@@ -257,9 +257,13 @@ export default function MusicDownloader() {
       const realAudioUri = `${API_URL}/download/${encodeURIComponent(file.filename)}`;
       console.log('Reproduciendo archivo real:', realAudioUri);
       
-      // Crear objeto de sonido con archivo real
+      // TEMPORAL: Usar archivo de prueba para debug
+      const testAudioUri = `${API_URL}/test-audio`;
+      console.log('Usando archivo de prueba:', testAudioUri);
+      
+      // Crear objeto de sonido con archivo de prueba
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: realAudioUri },
+        { uri: testAudioUri },
         { shouldPlay: true },
         (status) => {
           if (status.isLoaded) {
