@@ -66,8 +66,8 @@ export default function MusicDownloader() {
   // Estados de descarga
   const [downloadingItems, setDownloadingItems] = useState<{[key: string]: number}>({});
 
-  // Configuración de API
-  const API_URL = 'http://192.168.100.112:8000';
+  // Configuración de API - BACKEND EN RENDER
+  const API_URL = 'https://music-downloader-app.onrender.com';
 
   // Efectos
   useEffect(() => {
