@@ -77,38 +77,28 @@ export default function MusicDownloader() {
   // Funciones
   const loadDownloadedFiles = async () => {
     try {
-      console.log('Cargando archivos descargados...');
+      console.log('🔄 Cargando archivos descargados...');
       const response = await fetch(`${API_URL}/health`);
-      console.log('Status de respuesta:', response.status);
-      const data = await response.json();
-      console.log('Datos recibidos:', data);
+      console.log('📡 Status de respuesta:', response.status);
       
-      if (data.status === 'ok' || data.status === 'success') {
-        // Temporalmente usar datos hardcodeados
-        const mockFiles = [
-          {
-            filename: "Bad Bunny - Diles Original (Audio Oficial).webm",
-            title: "Bad Bunny - Diles Original",
-            size: 1234567,
-            modified: 1696896000,
-            path: "/download/Bad Bunny - Diles Original (Audio Oficial).webm"
-          },
-          {
-            filename: "Diles - Bad Bunny, Ozuna, Farruko, Arcangel, Ñengo Flow.webm",
-            title: "Diles - Bad Bunny, Ozuna, Farruko",
-            size: 2345678,
-            modified: 1696896000,
-            path: "/download/Diles - Bad Bunny, Ozuna, Farruko, Arcangel, Ñengo Flow.webm"
-          }
-        ];
-        setDownloadedFiles(mockFiles);
-        console.log('Archivos cargados (mock):', mockFiles.length);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📁 Datos recibidos:', data);
+      
+      if (data.status === 'success' && data.downloads) {
+        // Usar archivos reales del servidor
+        setDownloadedFiles(data.downloads);
+        console.log(`✅ ${data.downloads.length} archivos cargados`);
       } else {
-        console.log('Error en respuesta:', data);
-        Alert.alert('Error', 'No se pudieron cargar los archivos');
+        console.log('⚠️ No hay archivos descargados aún');
+        setDownloadedFiles([]);
       }
     } catch (error) {
-      console.error('Error cargando archivos:', error);
+      console.error('❌ Error cargando archivos:', error);
+      setDownloadedFiles([]);
     }
   };
 
@@ -157,7 +147,7 @@ export default function MusicDownloader() {
 
   const downloadMusic = async (result: SearchResult) => {
     try {
-      console.log('Iniciando descarga:', result.title);
+      console.log('🔽 Iniciando descarga real:', result.title);
       
       // Iniciar progreso de descarga
       setDownloadingItems(prev => ({
@@ -165,25 +155,26 @@ export default function MusicDownloader() {
         [result.id]: 0
       }));
       
-      // Simular progreso de descarga
-      const progressInterval = setInterval(() => {
-        setDownloadingItems(prev => {
-          const currentProgress = prev[result.id] || 0;
-          if (currentProgress < 90) {
-            return {
-              ...prev,
-              [result.id]: currentProgress + Math.random() * 20
-            };
-          }
-          return prev;
-        });
-      }, 500);
+      // Hacer la descarga real al backend
+      const response = await fetch(`${API_URL}/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: result.url,
+          quality: 'best'
+        })
+      });
       
-      // Simular descarga exitosa con datos reales
-      setTimeout(() => {
-        // Limpiar intervalo
-        clearInterval(progressInterval);
-        
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Respuesta de descarga:', data);
+      
+      if (data.status === 'success') {
         // Completar progreso
         setDownloadingItems(prev => ({
           ...prev,
@@ -198,20 +189,15 @@ export default function MusicDownloader() {
             return newState;
           });
           
-          // Agregar la nueva canción con datos reales
-          const newFile = {
-            filename: `${result.title}.mp3`,
-            title: result.title,
-            size: Math.floor(Math.random() * 5000000) + 1000000, // Tamaño realista
-            modified: Date.now() / 1000,
-            path: `/download/${result.title}.mp3`
-          };
-          setDownloadedFiles(prev => [newFile, ...prev]);
-          console.log('Nueva canción agregada:', newFile.title);
+          // Recargar archivos para incluir el nuevo
+          loadDownloadedFiles();
           
-          Alert.alert('🎵 Éxito', `Música descargada correctamente:\n${newFile.title}\n\nTamaño: ${formatFileSize(newFile.size)}\n\nNota: Esta es una simulación. Para descargas reales, necesitamos arreglar el backend.`);
+          Alert.alert('🎵 ¡Éxito!', `Música descargada correctamente:\n${data.file.title}\n\nTamaño: ${formatFileSize(data.file.file_size)}`);
         }, 500);
-      }, 3000); // 3 segundos de simulación
+        
+      } else {
+        throw new Error(data.message || 'Error desconocido en la descarga');
+      }
       
     } catch (error) {
       console.error('Error en descarga:', error);

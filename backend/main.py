@@ -96,74 +96,13 @@ async def get_files():
     ]
     return {"status": "success", "downloads": files, "total": len(files)}
 
-@app.post("/test-download")
-async def test_download(url: str):
-    """
-    Endpoint de prueba para descargas
-    """
-    try:
-        print(f"🧪 Test descarga: {url}")
-        
-        # Simular descarga exitosa
-        title = "Test Song"
-        filename = f"{title}.mp3"
-        
-        # Crear archivo de prueba
-        test_file = DOWNLOADS_DIR / filename
-        test_file.write_text("Test audio content")
-        
-        return {
-            "status": "success",
-            "message": f"Descarga de prueba completada: {title}",
-            "file": {
-                "title": title,
-                "filename": filename,
-                "size": test_file.stat().st_size
-            }
-        }
-    except Exception as e:
-        return {"status": "error", "message": f"Error en test: {str(e)}"}
-
-@app.post("/simple-download")
-async def simple_download(url: str):
-    """
-    Descarga simple sin yt-dlp (para pruebas)
-    """
-    try:
-        print(f"🔽 Descarga simple desde: {url}")
-        
-        # Simular descarga exitosa con datos reales
-        title = "Khea - Screenshot (Video Oficial)"
-        filename = "Khea - Screenshot.mp3"
-        
-        # Crear archivo de prueba más realista
-        test_file = DOWNLOADS_DIR / filename
-        test_content = b"ID3\x03\x00\x00\x00\x00\x00\x00\x00" + b"0" * 1000  # Simular MP3
-        test_file.write_bytes(test_content)
-        
-        print(f"✅ Archivo creado: {filename}")
-        
-        return {
-            "status": "success",
-            "task_id": "test-123",
-            "file": {
-                "title": title,
-                "artist": "KHEA",
-                "duration": 209,
-                "thumbnail": "",
-                "file_path": str(test_file),
-                "file_size": test_file.stat().st_size,
-                "filename": filename
-            }
-        }
-    except Exception as e:
-        print(f"❌ Error en descarga simple: {str(e)}")
-        return {"status": "error", "message": f"Error en descarga simple: {str(e)}"}
-
 @app.get("/health")
 async def health_check():
+    """
+    Verificar estado del servidor y listar archivos descargados
+    """
     try:
-        # Intentar leer archivos reales
+        # Leer archivos reales del directorio
         files = []
         if DOWNLOADS_DIR.exists():
             for file_path in DOWNLOADS_DIR.iterdir():
@@ -191,50 +130,6 @@ async def health_check():
             "downloads": [],
             "total": 0
         }
-
-@app.get("/test-downloads")
-async def test_downloads():
-    files = [
-        {
-            "filename": "Bad Bunny - Diles Original (Audio Oficial).mp3",
-            "title": "Bad Bunny - Diles Original",
-            "size": 1234567,
-            "modified": 1696896000,
-            "path": "/download/Bad Bunny - Diles Original (Audio Oficial).mp3"
-        },
-        {
-            "filename": "Diles - Bad Bunny, Ozuna, Farruko, Arcangel, Ñengo Flow.mp3",
-            "title": "Diles - Bad Bunny, Ozuna, Farruko",
-            "size": 2345678,
-            "modified": 1696896000,
-            "path": "/download/Diles - Bad Bunny, Ozuna, Farruko, Arcangel, Ñengo Flow.mp3"
-        }
-    ]
-    return {"status": "success", "downloads": files, "total": len(files)}
-
-@app.get("/my-downloads")
-async def my_downloads():
-    """
-    Endpoint alternativo para listar descargas
-    """
-    try:
-        # Leer archivos reales del directorio
-        files = []
-        if DOWNLOADS_DIR.exists():
-            for file_path in DOWNLOADS_DIR.iterdir():
-                if file_path.is_file() and file_path.suffix.lower() in ['.mp3', '.wav', '.m4a', '.webm']:
-                    stat = file_path.stat()
-                    files.append({
-                        "filename": file_path.name,
-                        "title": file_path.stem,
-                        "size": stat.st_size,
-                        "modified": stat.st_mtime,
-                        "path": f"/download/{file_path.name}"
-                    })
-        
-        return {"status": "success", "downloads": files, "total": len(files)}
-    except Exception as e:
-        return {"status": "success", "downloads": [], "total": 0}
 
 @app.post("/search")
 async def search_music(query: str):
@@ -309,26 +204,22 @@ async def download_audio(url: str, quality: str = "best", background_tasks: Back
         
         selected_quality = quality_map.get(quality, 'bestaudio/best')
         
-        # Configurar yt-dlp para Windows con mejor compatibilidad
+        # Configurar yt-dlp optimizado para Windows
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio/best',
             'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
             'writethumbnail': False,
             'writeinfojson': False,
-            'quiet': False,  # Mostrar logs para debug
-            'no_warnings': False,
-            'ignoreerrors': True,  # Ignorar errores menores
+            'quiet': True,
+            'no_warnings': True,
+            'ignoreerrors': False,
             'extract_flat': False,
             'noplaylist': True,
-            'extractaudio': True,
-            'audioformat': 'mp3',
-            'audioquality': '192K',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
-            'ffmpeg_location': None,  # Usar ffmpeg del sistema
         }
         
         # Crear tarea de descarga
@@ -349,21 +240,20 @@ async def download_audio(url: str, quality: str = "best", background_tasks: Back
                 print(f"✅ Descarga completada: {title}")
                 
                 # Buscar el archivo descargado
-                time.sleep(1)  # Esperar un momento para que se complete la escritura
+                time.sleep(2)  # Esperar a que se complete la escritura
                 
-                # Buscar archivos que contengan el título
-                safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                downloaded_files = list(DOWNLOADS_DIR.glob(f"*{safe_title[:30]}*"))
+                # Buscar archivos recientes (últimos 30 segundos)
+                current_time = time.time()
+                recent_files = []
                 
-                if not downloaded_files:
-                    # Buscar el archivo más reciente
-                    all_files = [f for f in DOWNLOADS_DIR.glob("*") if f.is_file()]
-                    if all_files:
-                        downloaded_files = [max(all_files, key=os.path.getctime)]
-                        print(f"📁 Archivo encontrado: {downloaded_files[0].name}")
+                for file_path in DOWNLOADS_DIR.glob("*"):
+                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+                        recent_files.append(file_path)
                 
-                if downloaded_files and downloaded_files[0].exists():
-                    file_path = downloaded_files[0]
+                if recent_files:
+                    # Tomar el archivo más reciente
+                    file_path = max(recent_files, key=os.path.getctime)
+                    print(f"📁 Archivo encontrado: {file_path.name}")
                     
                     # Actualizar tarea
                     task.status = "completed"
@@ -386,7 +276,7 @@ async def download_audio(url: str, quality: str = "best", background_tasks: Back
                         }
                     }
                 else:
-                    print("❌ No se encontró archivo descargado")
+                    print("❌ No se encontró archivo descargado recientemente")
                     return {"status": "error", "message": "Archivo descargado pero no encontrado"}
                 
         except Exception as e:
