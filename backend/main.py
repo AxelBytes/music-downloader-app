@@ -255,44 +255,73 @@ async def download_audio(url: str, quality: str = "best"):
         if not url:
             raise HTTPException(400, "URL es requerida")
         
-        # Crear archivo MP3 más realista y funcional
-        import uuid
-        title = f"Canción Descargada {uuid.uuid4().hex[:8]}"
-        filename = f"{title}.mp3"
+        # DESCARGAR MÚSICA REAL CON YT-DLP
+        print(f"🔽 Descargando música real desde: {url}")
         
-        test_file = DOWNLOADS_DIR / filename
-        
-        # Crear un MP3 más realista con múltiples frames
-        mp3_data = bytearray([
-            # ID3v2 header
-            0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ])
-        
-        # Agregar múltiples frames MP3 para simular audio real
-        for i in range(100):  # 100 frames = ~3-4 segundos
-            # Frame header (44.1kHz, 128kbps, stereo)
-            mp3_data.extend([0xFF, 0xFB, 0x90, 0x00])
-            # Datos del frame (1152 samples)
-            for _ in range(144):  # 144 bytes por frame
-                mp3_data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-        
-        test_file.write_bytes(mp3_data)
-        
-        print(f"✅ Archivo simulado creado: {filename}")
-        
-        return {
-            "status": "success",
-            "task_id": "sim-" + str(int(time.time())),
-            "file": {
-                "title": title,
-                "artist": "Artista de Prueba",
-                "duration": 180,
-                "thumbnail": "",
-                "file_path": str(test_file),
-                "file_size": test_file.stat().st_size,
-                "filename": filename
-            }
+        # Configurar yt-dlp para descarga real
+        ydl_opts = {
+            'format': 'bestaudio[ext=m4a]/bestaudio/best',
+            'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
+            'writethumbnail': False,
+            'writeinfojson': False,
+            'quiet': False,
+            'no_warnings': False,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
         }
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Extraer información primero
+                info = ydl.extract_info(url, download=False)
+                title = info.get('title', 'Canción Descargada')
+                duration = info.get('duration', 0)
+                print(f"📀 Título: {title}")
+                print(f"⏱️ Duración: {duration} segundos")
+                
+                # Descargar el archivo
+                ydl.download([url])
+                print(f"✅ Descarga completada: {title}")
+                
+                # Buscar el archivo descargado
+                time.sleep(2)  # Esperar a que se complete la escritura
+                
+                # Buscar archivos recientes (últimos 30 segundos)
+                current_time = time.time()
+                recent_files = []
+                
+                for file_path in DOWNLOADS_DIR.glob("*"):
+                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+                        recent_files.append(file_path)
+                
+                if recent_files:
+                    # Tomar el archivo más reciente
+                    downloaded_file = max(recent_files, key=os.path.getctime)
+                    print(f"📁 Archivo encontrado: {downloaded_file.name}")
+                    
+                    return {
+                        "status": "success",
+                        "task_id": "real-" + str(int(time.time())),
+                        "file": {
+                            "title": title,
+                            "artist": info.get('uploader', 'Artista desconocido'),
+                            "duration": duration,
+                            "thumbnail": info.get('thumbnail', ''),
+                            "file_path": str(downloaded_file),
+                            "file_size": downloaded_file.stat().st_size,
+                            "filename": downloaded_file.name
+                        }
+                    }
+                else:
+                    print("❌ No se encontró archivo descargado")
+                    raise Exception("Archivo descargado pero no encontrado")
+                    
+        except Exception as e:
+            print(f"❌ Error en descarga real: {str(e)}")
+            raise Exception(f"Error en descarga real: {str(e)}")
         
     except Exception as e:
         print(f"❌ Error en descarga: {str(e)}")
