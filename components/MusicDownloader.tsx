@@ -156,15 +156,11 @@ export default function MusicDownloader() {
       }));
       
       // Hacer la descarga real al backend
-      const response = await fetch(`${API_URL}/download`, {
+      const response = await fetch(`${API_URL}/download?url=${encodeURIComponent(result.url)}&quality=best`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: result.url,
-          quality: 'best'
-        })
+        }
       });
       
       if (!response.ok) {
