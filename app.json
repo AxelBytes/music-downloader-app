@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Music Player Pro",
+    "slug": "music-player-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b31cfd74-c77a-46cd-9589-ff8b9f190649"
+      }
+    },
+    "android": {
+      "package": "com.lionel.fullstack.musicplayerpro"
+    }
+  }
+}

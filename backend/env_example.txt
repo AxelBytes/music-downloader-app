@@ -1,0 +1,9 @@
+# Base de datos PlanetScale
+DATABASE_URL=mysql+pymysql://username:password@host:port/database_name
+
+# Configuración de la app
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Directorio de descargas (para desarrollo local)
+DOWNLOADS_DIR=./downloads
