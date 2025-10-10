@@ -262,7 +262,10 @@ export default function PremiumHomeScreen() {
                 placeholder="Buscar música..."
                 placeholderTextColor="#999"
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={(text) => {
+                  console.log('📝 SearchBar cambió a:', text);
+                  setSearchQuery(text);
+                }}
                 containerStyle={styles.searchContainerStyle}
                 inputContainerStyle={styles.searchInputContainer}
                 inputStyle={styles.searchInput}
@@ -271,7 +274,11 @@ export default function PremiumHomeScreen() {
               />
               <TouchableOpacity 
                 style={styles.searchButton}
-                onPress={() => handleSearch(searchQuery)}
+                onPress={() => {
+                  console.log('🔘 Botón de búsqueda presionado');
+                  console.log('📝 searchQuery actual:', searchQuery);
+                  handleSearch(searchQuery);
+                }}
                 disabled={searching || !searchQuery.trim()}
               >
                 <LinearGradient
