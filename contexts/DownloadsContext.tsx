@@ -119,30 +119,43 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
     }
 
     setSearching(true);
+    console.log('🔍 Iniciando búsqueda:', query);
+    console.log('🌐 URL del backend:', API_URL);
+    
     try {
       // Intentar buscar en el backend primero
-      const response = await fetch(`${API_URL}/search`, {
+      const searchUrl = `${API_URL}/search?query=${encodeURIComponent(query)}`;
+      console.log('📡 Enviando request a:', searchUrl);
+      
+      const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: query }),
         timeout: 5000, // 5 segundos de timeout
       });
       
+      console.log('📡 Status de respuesta:', response.status);
+      console.log('📡 Headers:', response.headers);
+      
       if (!response.ok) {
-        throw new Error('Backend no disponible');
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        throw new Error(`Backend error: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('📡 Respuesta del servidor:', data);
       
       if (data.status === 'success' && data.results) {
+        console.log('✅ Resultados encontrados:', data.results.length);
         setSearchResults(data.results);
+        setIsOnline(true); // Marcar como online
       } else {
-        // No mostrar error, simplemente no hay resultados de YouTube
+        console.log('⚠️ No hay resultados o formato incorrecto');
         setSearchResults([]);
       }
     } catch (error: any) {
+      console.error('❌ Error en búsqueda:', error);
       console.log('🔌 Modo offline: Backend no disponible, buscando en archivos locales...');
       setIsOnline(false); // Marcar como offline
       
