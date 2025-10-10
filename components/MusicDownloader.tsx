@@ -14,8 +14,21 @@ import {
 import { Search, Download, Music, Play, Trash2, ExternalLink, Pause, SkipBack, SkipForward } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import * as FileSystem from 'expo-file-system';
+import { Card, Button, Icon, Avatar, Badge, ProgressBar } from '@rneui/themed';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
+  withTiming,
+  FadeInDown,
+  FadeInRight,
+  SlideInUp
+} from 'react-native-reanimated';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
+import { useDownloaderMusicPlayer } from '@/contexts/DownloaderMusicPlayerContext';
+import { useLocalSearchParams } from 'expo-router';
+import { PremiumGlassCard, PremiumButton } from '@/components/PremiumComponents';
 
 const { width } = Dimensions.get('window');
 
@@ -46,249 +59,242 @@ interface DownloadTask {
   error?: string;
 }
 
-export default function MusicDownloader() {
-  // Estados
+export default function PremiumMusicDownloader() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([]);
-  const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
-  const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  
-  // Estados del reproductor
+  const [downloading, setDownloading] = useState(false);
+  const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
   const [currentSong, setCurrentSong] = useState<DownloadedFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [sound, setSound] = useState<any>(null);
-  
-  // Estados de descarga
-  const [downloadingItems, setDownloadingItems] = useState<{[key: string]: number}>({});
+  const [showDownloaded, setShowDownloaded] = useState(true);
 
-  // Configuración de API - SERVIDOR LOCAL (temporal)
+  const { playSong, pauseSong, resumeSong, isPlaying: playerIsPlaying, currentSong: playerCurrentSong } = useDownloaderMusicPlayer();
+  const { id } = useLocalSearchParams();
+
   const API_URL = 'http://192.168.100.112:8000';
 
-  // Efectos
   useEffect(() => {
     loadDownloadedFiles();
   }, []);
 
-  // Funciones auxiliares
-  const normalizeUrl = (url: string): string => {
-    // Si la URL no tiene extensión reconocible, agregar .mp3
-    if (!url.match(/\.(mp3|mp4|wav|m4a|aac)$/i)) {
-      return url + '.mp3';
-    }
-    return url;
-  };
-
-  // Funciones
   const loadDownloadedFiles = async () => {
     try {
-      console.log('🔄 Cargando archivos descargados...');
-      const response = await fetch(`${API_URL}/health`);
-      console.log('📡 Status de respuesta:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      console.log('📥 Cargando archivos descargados...');
+
+      // Primero intentar cargar desde el backend
+      try {
+        const response = await fetch(`${API_URL}/downloads`, {
+          timeout: 5000,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'success' && data.downloads) {
+            // Convertir formato del backend al formato esperado por la app
+            const backendFiles = data.downloads.map((file: any) => ({
+              filename: file.filename,
+              file_path: file.path, // Ruta del backend
+              file_size: file.size,
+              created_at: file.modified,
+            }));
+
+            setDownloadedFiles(backendFiles);
+            console.log(`✅ ${backendFiles.length} archivos cargados desde el backend`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ No se pudo cargar desde el backend, usando archivos locales...');
       }
-      
-      const data = await response.json();
-      console.log('📁 Datos recibidos:', data);
-      
-      if (data.status === 'success' && data.downloads) {
-        // Usar archivos reales del servidor
-        setDownloadedFiles(data.downloads);
-        console.log(`✅ ${data.downloads.length} archivos cargados`);
-      } else {
-        console.log('⚠️ No hay archivos descargados aún');
-        setDownloadedFiles([]);
-      }
+
+      // Fallback: cargar archivos locales del dispositivo
+      const docDir = FileSystem.documentDirectory || '';
+      const files = await FileSystem.readDirectoryAsync(docDir);
+
+      const audioFiles = files.filter(file => 
+        file.endsWith('.mp3') || 
+        file.endsWith('.m4a') || 
+        file.endsWith('.webm')
+      );
+
+      const filesWithInfo = await Promise.all(
+        audioFiles.map(async (filename) => {
+          const fileUri = `${docDir}${filename}`;
+          const fileInfo = await FileSystem.getInfoAsync(fileUri);
+
+          return {
+            filename: filename,
+            file_path: fileUri,
+            file_size: fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size || 0 : 0,
+            created_at: fileInfo.exists && !fileInfo.isDirectory ? (fileInfo.modificationTime || Date.now() / 1000) : Date.now() / 1000,
+          };
+        })
+      );
+
+      setDownloadedFiles(filesWithInfo);
+      console.log(`✅ ${filesWithInfo.length} archivos locales cargados (OFFLINE)`);
+
     } catch (error) {
       console.error('❌ Error cargando archivos:', error);
-      setDownloadedFiles([]);
     }
   };
 
-  const searchMusic = async () => {
-    if (!searchQuery.trim()) {
-      Alert.alert('Error', 'Ingresa un término de búsqueda');
+  const searchMusic = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
       return;
     }
 
     setSearching(true);
     try {
-      console.log('Buscando:', searchQuery);
-      const searchUrl = `${API_URL}/search?query=${encodeURIComponent(searchQuery)}`;
-      console.log('URL:', searchUrl);
-      
-      const response = await fetch(`${API_URL}/search?query=${encodeURIComponent(searchQuery)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch(`${API_URL}/search?query=${encodeURIComponent(query)}`, {
+        timeout: 5000,
       });
 
-      console.log('Status de respuesta:', response.status);
-      console.log('Headers:', response.headers);
-      
-      const data = await response.json();
-      console.log('Respuesta del servidor:', data);
-      
-      if (data.status === 'success') {
-        setSearchResults(data.results);
-        console.log('Resultados encontrados:', data.results.length);
-        if (data.results.length === 0) {
-          Alert.alert('Sin resultados', 'No se encontraron canciones para tu búsqueda');
-        }
-      } else {
-        console.log('Error en respuesta:', data);
-        Alert.alert('Error', 'No se pudieron obtener resultados');
+      if (!response.ok) {
+        throw new Error('Backend no disponible');
       }
-    } catch (error) {
-      console.error('Error en búsqueda:', error);
-      Alert.alert('Error', `No se pudo conectar con el servidor: ${error.message}`);
+
+      const data = await response.json();
+
+      if (data.status === 'success' && data.results) {
+        setSearchResults(data.results);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error: any) {
+      console.log('🔌 Modo offline: Backend no disponible, buscando en archivos locales...');
+
+      // MODO OFFLINE: Buscar en archivos descargados localmente
+      const localResults = downloadedFiles.filter(file =>
+        file.filename.toLowerCase().includes(query.toLowerCase())
+      ).map(file => ({
+        id: file.filename,
+        title: file.filename.replace(/\.(mp3|m4a|webm)$/i, ''),
+        artist: 'Archivo Local',
+        duration: 0,
+        thumbnail: '',
+        url: file.file_path,
+        view_count: 0,
+      }));
+
+      setSearchResults(localResults);
+      console.log(`📱 Encontrados ${localResults.length} archivos locales`);
     } finally {
       setSearching(false);
     }
   };
 
-  const downloadMusic = async (result: SearchResult) => {
+  const downloadMusic = async (song: SearchResult) => {
+    const taskId = Date.now().toString();
+    
+    // Agregar tarea de descarga
+    setDownloadTasks(prev => [...prev, {
+      id: taskId,
+      url: song.url,
+      status: 'pending',
+      progress: 0,
+    }]);
+
+    setDownloading(true);
+
     try {
-      console.log('🔽 Iniciando descarga real:', result.title);
+      console.log(`🎵 Descargando: ${song.title}`);
       
-      // Iniciar progreso de descarga
-      setDownloadingItems(prev => ({
-        ...prev,
-        [result.id]: 0
-      }));
-      
-      // Hacer la descarga real al backend
-      const response = await fetch(`${API_URL}/download?url=${encodeURIComponent(result.url)}&quality=best`, {
+      const response = await fetch(`${API_URL}/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          url: song.url,
+          title: song.title,
+          artist: song.artist,
+        }),
+        timeout: 300000, // 5 minutos de timeout
       });
-      
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error en la descarga');
       }
-      
+
       const data = await response.json();
-      console.log('📥 Respuesta de descarga:', data);
-      
+
       if (data.status === 'success') {
-        // Completar progreso
-        setDownloadingItems(prev => ({
-          ...prev,
-          [result.id]: 100
-        }));
+        console.log(`✅ Descarga completada: ${data.filename}`);
         
-        // Esperar un momento para mostrar 100%
-        setTimeout(() => {
-          setDownloadingItems(prev => {
-            const newState = { ...prev };
-            delete newState[result.id];
-            return newState;
-          });
-          
-          // Recargar archivos para incluir el nuevo
-          loadDownloadedFiles();
-          
-          Alert.alert('🎵 ¡Éxito!', `Música descargada correctamente:\n${data.file.title}\n\nTamaño: ${formatFileSize(data.file.file_size)}`);
-        }, 500);
+        // Actualizar estado de la tarea
+        setDownloadTasks(prev => prev.map(task => 
+          task.id === taskId 
+            ? { ...task, status: 'completed', progress: 100, file_path: data.path }
+            : task
+        ));
+
+        // Recargar archivos descargados
+        await loadDownloadedFiles();
         
+        Alert.alert('¡Éxito!', 'Canción descargada correctamente');
       } else {
-        throw new Error(data.message || 'Error desconocido en la descarga');
+        throw new Error(data.message || 'Error en la descarga');
       }
+
+    } catch (error: any) {
+      console.error('❌ Error descargando:', error);
       
-    } catch (error) {
-      console.error('Error en descarga:', error);
-      // Limpiar progreso en caso de error
-      setDownloadingItems(prev => {
-        const newState = { ...prev };
-        delete newState[result.id];
-        return newState;
-      });
-      Alert.alert('Error', `Error de conexión: ${error.message}`);
+      // Actualizar estado de la tarea con error
+      setDownloadTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, status: 'failed', error: error.message }
+          : task
+      ));
+
+      let errorMessage = 'Error desconocido';
+      
+      if (error.message.includes('Network request failed')) {
+        errorMessage = 'Sin conexión al servidor. Verifica tu internet.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Tiempo de espera agotado. Intenta de nuevo.';
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        errorMessage = 'Video restringido. No se puede descargar.';
+      } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+        errorMessage = 'Video no encontrado. Verifica el enlace.';
+      } else {
+        errorMessage = error.message || 'Error en la descarga';
+      }
+
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setDownloading(false);
+      
+      // Limpiar tarea después de 3 segundos
+      setTimeout(() => {
+        setDownloadTasks(prev => prev.filter(task => task.id !== taskId));
+      }, 3000);
     }
   };
 
   const deleteFile = async (filename: string) => {
-    Alert.alert(
-      'Confirmar eliminación',
-      '¿Estás seguro de que quieres eliminar este archivo?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${API_URL}/download/${filename}`, {
-                method: 'DELETE',
-              });
-
-              const data = await response.json();
-              
-              if (data.status === 'success') {
-                Alert.alert('Éxito', 'Archivo eliminado correctamente');
-                loadDownloadedFiles();
-              }
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el archivo');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const playMusic = async (file: DownloadedFile) => {
     try {
-      // Detener reproducción anterior si existe
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      // Configurar Audio
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      const response = await fetch(`${API_URL}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename }),
       });
 
-      // Para archivos reales descargados, usar la URL del servidor
-      const realAudioUri = normalizeUrl(`${API_URL}/download/${encodeURIComponent(file.filename)}`);
-      console.log('🎵 Reproduciendo archivo real:', realAudioUri);
-      
-      // Crear objeto de sonido con archivo real
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { 
-          uri: realAudioUri,
-          overrideFileExtensionAndroid: 'mp3'
-        },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded) {
-            setDuration(status.durationMillis || 0);
-            setCurrentPosition(status.positionMillis || 0);
-            setIsPlaying(status.isPlaying || false);
-          }
-        }
-      );
-
-      setSound(newSound);
-      setCurrentSong(file);
-      setIsPlaying(true);
-      
+      if (response.ok) {
+        await loadDownloadedFiles();
+        Alert.alert('¡Éxito!', 'Archivo eliminado correctamente');
+      } else {
+        throw new Error('Error eliminando archivo');
+      }
     } catch (error) {
-      console.error('Error reproduciendo:', error);
-      Alert.alert('🎵 Error', `${file.title}\n\nNo se pudo reproducir el archivo. Verifica que el servidor esté funcionando.`);
+      console.error('Error eliminando archivo:', error);
+      Alert.alert('Error', 'No se pudo eliminar el archivo');
     }
   };
 
@@ -302,301 +308,309 @@ export default function MusicDownloader() {
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatTime = (milliseconds: number): string => {
-    const seconds = Math.floor(milliseconds / 1000);
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Funciones del reproductor
-  const togglePlayPause = async () => {
-    if (!sound) return;
-    
-    try {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
-    } catch (error) {
-      console.error('Error toggling play/pause:', error);
+  const handlePlay = async (file: DownloadedFile) => {
+    if (playerCurrentSong?.filename === file.filename && playerIsPlaying) {
+      await pauseSong();
+    } else {
+      await playSong(file, downloadedFiles);
     }
   };
 
-  const seekTo = async (position: number) => {
-    if (!sound) return;
-    
-    try {
-      await sound.setPositionAsync(position);
-      setCurrentPosition(position);
-    } catch (error) {
-      console.error('Error seeking:', error);
-    }
-  };
-
-  const playNext = () => {
-    if (!currentSong || downloadedFiles.length === 0) return;
-    
-    const currentIndex = downloadedFiles.findIndex(file => file.filename === currentSong.filename);
-    const nextIndex = (currentIndex + 1) % downloadedFiles.length;
-    const nextSong = downloadedFiles[nextIndex];
-    
-    playMusic(nextSong);
-  };
-
-  const playPrevious = () => {
-    if (!currentSong || downloadedFiles.length === 0) return;
-    
-    const currentIndex = downloadedFiles.findIndex(file => file.filename === currentSong.filename);
-    const prevIndex = currentIndex === 0 ? downloadedFiles.length - 1 : currentIndex - 1;
-    const prevSong = downloadedFiles[prevIndex];
-    
-    playMusic(prevSong);
-  };
-
-  // Renderizado de componentes
-  const renderSearchResult = ({ item }: { item: SearchResult }) => {
-    const isDownloading = downloadingItems[item.id] !== undefined;
-    const progress = downloadingItems[item.id] || 0;
-    
-    return (
-      <View style={[
-        styles.searchResult,
-        isDownloading && styles.searchResultDownloading
-      ]}>
-        <View style={styles.resultInfo}>
-          <Text style={[
-            styles.resultTitle,
-            isDownloading && styles.resultTitleDownloading
-          ]} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={[
-            styles.resultArtist,
-            isDownloading && styles.resultArtistDownloading
-          ]} numberOfLines={1}>
-            {item.artist}
-          </Text>
-          <Text style={[
-            styles.resultDuration,
-            isDownloading && styles.resultDurationDownloading
-          ]}>
-            {formatDuration(item.duration)}
-          </Text>
-        </View>
-        <View style={styles.downloadButtonContainer}>
-          {isDownloading ? (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressCircle}>
-                <Text style={styles.progressText}>{Math.round(progress)}%</Text>
-              </View>
+  const renderPremiumSearchResult = ({ item }: { item: SearchResult }) => (
+    <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.resultContainer}>
+      <PremiumGlassCard style={styles.resultCard}>
+        <View style={styles.resultContent}>
+          <View style={styles.resultInfo}>
+            <View style={styles.resultThumbnail}>
+              <LinearGradient
+                colors={['#8b5cf6', '#06b6d4']}
+                style={styles.thumbnailGradient}
+              >
+                <Icon name="music" type="feather" color="#fff" size={24} />
+              </LinearGradient>
             </View>
-          ) : (
+            
+            <View style={styles.resultDetails}>
+              <Text style={styles.resultTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.resultArtist} numberOfLines={1}>
+                {item.artist}
+              </Text>
+              <Text style={styles.resultDuration}>
+                {formatDuration(item.duration)} • {item.view_count.toLocaleString()} vistas
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.resultActions}>
             <TouchableOpacity
-              style={styles.downloadButton}
+              style={styles.resultActionButton}
               onPress={() => downloadMusic(item)}
+              disabled={downloading}
             >
               <LinearGradient
-                colors={['#06b6d4', '#8b5cf6']}
-                style={styles.downloadButtonGradient}
+                colors={['#8b5cf6', '#06b6d4']}
+                style={styles.actionButtonGradient}
               >
-                <Download size={20} color="#fff" />
+                {downloading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Icon name="download" type="feather" color="#fff" size={20} />
+                )}
               </LinearGradient>
             </TouchableOpacity>
-          )}
+          </View>
         </View>
-      </View>
-    );
-  };
+      </PremiumGlassCard>
+    </Animated.View>
+  );
 
-  const renderDownloadedFile = ({ item }: { item: DownloadedFile }) => (
-    <View style={styles.downloadedFile}>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {item.filename.replace('.mp3', '')}
-        </Text>
-        <Text style={styles.fileSize}>
-          {formatFileSize(item.file_size)}
-        </Text>
-      </View>
-      <View style={styles.fileActions}>
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={() => playMusic(item)}
-        >
-          <Play size={18} color="#8b5cf6" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteFile(item.filename)}
-        >
-          <Trash2 size={18} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-    </View>
+  const renderPremiumDownloadedFile = ({ item }: { item: DownloadedFile }) => (
+    <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.downloadedContainer}>
+      <PremiumGlassCard style={styles.downloadedCard}>
+        <View style={styles.downloadedContent}>
+          <View style={styles.downloadedInfo}>
+            <View style={styles.downloadedThumbnail}>
+              <LinearGradient
+                colors={['#10b981', '#06b6d4']}
+                style={styles.thumbnailGradient}
+              >
+                <Icon name="music" type="feather" color="#fff" size={24} />
+              </LinearGradient>
+            </View>
+            
+            <View style={styles.downloadedDetails}>
+              <Text style={styles.downloadedTitle} numberOfLines={1}>
+                {item.filename.replace(/\.(mp3|m4a|webm)$/i, '')}
+              </Text>
+              <Text style={styles.downloadedSize}>
+                {formatFileSize(item.file_size)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.downloadedActions}>
+            <TouchableOpacity
+              style={styles.downloadedActionButton}
+              onPress={() => handlePlay(item)}
+            >
+              <LinearGradient
+                colors={playerCurrentSong?.filename === item.filename && playerIsPlaying ? ['#ef4444', '#f59e0b'] : ['#8b5cf6', '#06b6d4']}
+                style={styles.actionButtonGradient}
+              >
+                <Icon 
+                  name={playerCurrentSong?.filename === item.filename && playerIsPlaying ? "pause" : "play"} 
+                  type="feather" 
+                  color="#fff" 
+                  size={20} 
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.downloadedActionButton}
+              onPress={() => deleteFile(item.filename)}
+            >
+              <Icon name="trash-2" type="feather" color="#ef4444" size={20} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </PremiumGlassCard>
+    </Animated.View>
+  );
+
+  const renderDownloadTask = ({ item }: { item: DownloadTask }) => (
+    <Animated.View entering={SlideInUp} style={styles.taskContainer}>
+      <PremiumGlassCard style={styles.taskCard}>
+        <View style={styles.taskContent}>
+          <View style={styles.taskInfo}>
+            <Icon 
+              name={item.status === 'completed' ? 'check-circle' : item.status === 'failed' ? 'x-circle' : 'download'} 
+              type="feather" 
+              color={item.status === 'completed' ? '#10b981' : item.status === 'failed' ? '#ef4444' : '#8b5cf6'} 
+              size={24} 
+            />
+            <View style={styles.taskDetails}>
+              <Text style={styles.taskTitle}>
+                {item.status === 'completed' ? 'Descarga completada' : 
+                 item.status === 'failed' ? 'Error en descarga' : 'Descargando...'}
+              </Text>
+              {item.status === 'downloading' && (
+                <ProgressBar 
+                  progress={item.progress / 100}
+                  color="#8b5cf6"
+                  style={styles.taskProgress}
+                />
+              )}
+              {item.error && (
+                <Text style={styles.taskError}>{item.error}</Text>
+              )}
+            </View>
+          </View>
+        </View>
+      </PremiumGlassCard>
+    </Animated.View>
   );
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#1a0033', '#000000']} style={styles.gradient}>
-        <View style={styles.header}>
+        {/* Header Premium */}
+        <Animated.View entering={FadeInDown} style={styles.header}>
           <Text style={styles.headerTitle}>Descargar Música</Text>
-          <Text style={styles.headerSubtitle}>Busca y descarga tu música favorita</Text>
-        </View>
+          <Text style={styles.headerSubtitle}>
+            Busca y descarga música desde YouTube
+          </Text>
+        </Animated.View>
 
-        {/* Barra de búsqueda */}
-        <View style={styles.searchContainer}>
-          <BlurView intensity={20} style={styles.searchBar}>
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Buscar música..."
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
-              returnKeyType="search"
-              onSubmitEditing={searchMusic}
-            />
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={searchMusic}
-              disabled={searching}
-            >
-              <LinearGradient
-                colors={['#06b6d4', '#8b5cf6']}
-                style={styles.searchButtonGradient}
-              >
-                {searching ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Search size={20} color="#fff" />
+        {/* Search Bar Premium */}
+        <Animated.View entering={FadeInDown.delay(200)} style={styles.searchContainer}>
+          <PremiumGlassCard style={styles.searchCard}>
+            <View style={styles.searchContent}>
+              <View style={styles.searchInputContainer}>
+                <Icon name="search" type="feather" color="#8b5cf6" size={20} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar música en YouTube..."
+                  placeholderTextColor="#666"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onSubmitEditing={() => searchMusic(searchQuery)}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Icon name="x" type="feather" color="#666" size={20} />
+                  </TouchableOpacity>
                 )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </BlurView>
-        </View>
+              </View>
+              
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => searchMusic(searchQuery)}
+                disabled={!searchQuery.trim() || searching}
+              >
+                <LinearGradient
+                  colors={['#8b5cf6', '#06b6d4']}
+                  style={styles.searchButtonGradient}
+                >
+                  {searching ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Icon name="search" type="feather" color="#fff" size={20} />
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </PremiumGlassCard>
+        </Animated.View>
 
-        {/* Resultados de búsqueda */}
-        {searchResults.length > 0 && (
-          <View style={styles.resultsSection}>
-            <Text style={styles.sectionTitle}>Resultados de Búsqueda</Text>
+        {/* Tabs Premium */}
+        <Animated.View entering={FadeInDown.delay(400)} style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tab, showDownloaded && styles.tabActive]}
+            onPress={() => setShowDownloaded(true)}
+          >
+            <LinearGradient
+              colors={showDownloaded ? ['#8b5cf6', '#06b6d4'] : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+              style={styles.tabGradient}
+            >
+              <Icon name="download" type="feather" color={showDownloaded ? '#fff' : '#666'} size={20} />
+              <Text style={[styles.tabText, showDownloaded && styles.tabTextActive]}>
+                Descargas ({downloadedFiles.length})
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tab, !showDownloaded && styles.tabActive]}
+            onPress={() => setShowDownloaded(false)}
+          >
+            <LinearGradient
+              colors={!showDownloaded ? ['#8b5cf6', '#06b6d4'] : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+              style={styles.tabGradient}
+            >
+              <Icon name="search" type="feather" color={!showDownloaded ? '#fff' : '#666'} size={20} />
+              <Text style={[styles.tabText, !showDownloaded && styles.tabTextActive]}>
+                Búsqueda
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Download Tasks */}
+        {downloadTasks.length > 0 && (
+          <Animated.View entering={SlideInUp.delay(600)} style={styles.tasksContainer}>
             <FlatList
-              data={searchResults}
-              keyExtractor={item => item.id}
-              renderItem={renderSearchResult}
-              showsVerticalScrollIndicator={false}
-              style={styles.resultsList}
+              data={downloadTasks}
+              keyExtractor={(item) => item.id}
+              renderItem={renderDownloadTask}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tasksList}
             />
-          </View>
+          </Animated.View>
         )}
 
-        {/* Archivos descargados */}
-        <View style={styles.downloadsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Mis Descargas</Text>
-            <TouchableOpacity
-              style={styles.refreshButton}
-              onPress={loadDownloadedFiles}
-            >
-              <ExternalLink size={16} color="#8b5cf6" />
-            </TouchableOpacity>
-          </View>
-          
-          {downloadedFiles.length > 0 ? (
+        {/* Content */}
+        <Animated.View entering={FadeInDown.delay(600)} style={styles.content}>
+          {showDownloaded ? (
             <FlatList
               data={downloadedFiles}
-              keyExtractor={item => item.filename}
-              renderItem={renderDownloadedFile}
-              showsVerticalScrollIndicator={false}
-              style={styles.downloadsList}
+              keyExtractor={(item) => item.filename}
+              renderItem={renderPremiumDownloadedFile}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <LinearGradient
+                    colors={['#8b5cf6', '#06b6d4']}
+                    style={styles.emptyIcon}
+                  >
+                    <Icon name="download" type="feather" color="#fff" size={48} />
+                  </LinearGradient>
+                  <Text style={styles.emptyText}>No tienes descargas</Text>
+                  <Text style={styles.emptySubtext}>
+                    Busca música y descárgala para escucharla offline
+                  </Text>
+                </View>
+              }
               refreshControl={
                 <RefreshControl
-                  refreshing={refreshing}
+                  refreshing={false}
                   onRefresh={loadDownloadedFiles}
                   tintColor="#8b5cf6"
                 />
               }
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Music size={48} color="#666" />
-              <Text style={styles.emptyText}>No hay archivos descargados</Text>
-              <Text style={styles.emptySubtext}>
-                Busca y descarga música para verla aquí
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Reproductor de música */}
-        {currentSong && (
-          <View style={styles.musicPlayer}>
-            <LinearGradient colors={['#1a0033', '#2d1b69']} style={styles.playerGradient}>
-              <View style={styles.playerContent}>
-                {/* Información de la canción */}
-                <View style={styles.songInfo}>
-                  <Text style={styles.songTitle} numberOfLines={1}>
-                    {currentSong.title}
-                  </Text>
-                  <Text style={styles.songArtist} numberOfLines={1}>
-                    Artista
-                  </Text>
-                </View>
-
-                {/* Barra de progreso */}
-                <View style={styles.progressContainer}>
-                  <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
-                  <TouchableOpacity
-                    style={styles.progressBar}
-                    onPress={(event) => {
-                      const { locationX } = event.nativeEvent;
-                      const progress = locationX / (width - 120);
-                      const newPosition = progress * duration;
-                      seekTo(newPosition);
-                    }}
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => item.id}
+              renderItem={renderPremiumSearchResult}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <LinearGradient
+                    colors={['#8b5cf6', '#06b6d4']}
+                    style={styles.emptyIcon}
                   >
-                    <View style={styles.progressTrack}>
-                      <View 
-                        style={[
-                          styles.progressFill, 
-                          { width: `${duration > 0 ? (currentPosition / duration) * 100 : 0}%` }
-                        ]} 
-                      />
-                    </View>
-                  </TouchableOpacity>
-                  <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                    <Icon name="search" type="feather" color="#fff" size={48} />
+                  </LinearGradient>
+                  <Text style={styles.emptyText}>
+                    {searchQuery ? 'No se encontraron resultados' : 'Busca música para descargar'}
+                  </Text>
+                  <Text style={styles.emptySubtext}>
+                    {searchQuery ? 'Intenta con otros términos de búsqueda' : 'Escribe el nombre de una canción o artista'}
+                  </Text>
                 </View>
-
-                {/* Controles */}
-                <View style={styles.controls}>
-                  <TouchableOpacity style={styles.controlButton} onPress={playPrevious}>
-                    <SkipBack size={24} color="#fff" />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity style={styles.playButtonLarge} onPress={togglePlayPause}>
-                    <LinearGradient colors={['#8b5cf6', '#06b6d4']} style={styles.playButtonGradient}>
-                      {isPlaying ? (
-                        <Pause size={28} color="#fff" />
-                      ) : (
-                        <Play size={28} color="#fff" />
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity style={styles.controlButton} onPress={playNext}>
-                    <SkipForward size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-        )}
+              }
+            />
+          )}
+        </Animated.View>
       </LinearGradient>
     </View>
   );
@@ -616,7 +630,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 4,
@@ -629,62 +643,144 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  searchBar: {
+  searchCard: {
+    margin: 0,
+  },
+  searchContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInputContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
+    gap: 12,
   },
   searchInput: {
     flex: 1,
     color: '#fff',
     fontSize: 16,
-    marginRight: 12,
   },
   searchButton: {
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   searchButtonGradient: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  resultsSection: {
+  tabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  tab: {
     flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  tabActive: {
+    // Active styling handled by gradient
+  },
+  tabGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  tasksContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+  tasksList: {
+    gap: 12,
   },
-  resultsList: {
-    flex: 1,
+  taskContainer: {
+    width: width * 0.8,
   },
-  searchResult: {
+  taskCard: {
+    margin: 0,
+  },
+  taskContent: {
+    paddingVertical: 8,
+  },
+  taskInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    gap: 12,
   },
-  searchResultDownloading: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderColor: 'rgba(139, 92, 246, 0.3)',
-    opacity: 0.7,
+  taskDetails: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  taskProgress: {
+    height: 4,
+    borderRadius: 2,
+  },
+  taskError: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
+  },
+  content: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  resultContainer: {
+    marginBottom: 12,
+  },
+  resultCard: {
+    margin: 0,
+  },
+  resultContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   resultInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+  },
+  resultThumbnail: {
     marginRight: 12,
+  },
+  thumbnailGradient: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultDetails: {
+    flex: 1,
   },
   resultTitle: {
     fontSize: 16,
@@ -695,210 +791,94 @@ const styles = StyleSheet.create({
   resultArtist: {
     fontSize: 14,
     color: '#999',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   resultDuration: {
     fontSize: 12,
     color: '#666',
   },
-  resultTitleDownloading: {
-    color: '#666',
+  resultActions: {
+    gap: 8,
   },
-  resultArtistDownloading: {
-    color: '#555',
-  },
-  resultDurationDownloading: {
-    color: '#555',
-  },
-  downloadButton: {
-    borderRadius: 8,
+  resultActionButton: {
+    borderRadius: 16,
     overflow: 'hidden',
   },
-  downloadButtonGradient: {
+  actionButtonGradient: {
     width: 40,
     height: 40,
+    borderRadius: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  downloadButtonContainer: {
-    width: 40,
-    height: 40,
-  },
-  progressContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    borderWidth: 2,
-    borderColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#8b5cf6',
-  },
-  downloadsSection: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  downloadedContainer: {
     marginBottom: 12,
   },
-  refreshButton: {
-    padding: 8,
+  downloadedCard: {
+    margin: 0,
   },
-  downloadsList: {
-    flex: 1,
-  },
-  downloadedFile: {
+  downloadedContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    justifyContent: 'space-between',
   },
-  fileInfo: {
+  downloadedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+  },
+  downloadedThumbnail: {
     marginRight: 12,
   },
-  fileName: {
+  downloadedDetails: {
+    flex: 1,
+  },
+  downloadedTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
     marginBottom: 4,
   },
-  fileSize: {
+  downloadedSize: {
     fontSize: 12,
-    color: '#666',
+    color: '#999',
   },
-  fileActions: {
+  downloadedActions: {
     flexDirection: 'row',
     gap: 8,
   },
-  playButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    justifyContent: 'center',
+  downloadedActionButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    justifyContent: 'center',
+  emptyContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
-  emptyState: {
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    marginBottom: 16,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#444',
-    marginTop: 4,
+    color: '#666',
     textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  // Estilos del reproductor
-  musicPlayer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(139, 92, 246, 0.3)',
-  },
-  playerGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 34, // Para el safe area
-  },
-  playerContent: {
-    alignItems: 'center',
-  },
-  songInfo: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  songTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  songArtist: {
-    fontSize: 14,
-    color: '#999',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#999',
-    minWidth: 40,
-    textAlign: 'center',
-  },
-  progressBar: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  progressTrack: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#8b5cf6',
-    borderRadius: 2,
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlButton: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playButtonLarge: {
-    marginHorizontal: 20,
-  },
-  playButtonGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 40,
   },
 });

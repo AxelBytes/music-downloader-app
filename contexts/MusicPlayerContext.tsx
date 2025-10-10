@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 import { Audio } from 'expo-av';
 import { Database } from '@/lib/supabase';
+import { usePlayCount } from './PlayCountContext';
 
 type Song = Database['public']['Tables']['songs']['Row'];
 
@@ -32,6 +33,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const { incrementPlayCount } = usePlayCount();
 
   const setupAudio = async () => {
     await Audio.setAudioModeAsync({
@@ -84,6 +86,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       setCurrentSong(song);
       setIsPlaying(true);
       startProgressUpdates();
+
+      // Incrementar conteo de reproducciones
+      incrementPlayCount({
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        thumbnail: song.thumbnail_url,
+        url: song.audio_url,
+      });
 
       if (newQueue) {
         setQueueState(newQueue);

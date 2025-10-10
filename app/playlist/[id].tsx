@@ -14,6 +14,7 @@ import { ArrowLeft, Music } from 'lucide-react-native';
 import { supabase, Database } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
+import { useDownloaderMusicPlayer } from '@/contexts/DownloaderMusicPlayerContext';
 import SongCard from '@/components/SongCard';
 import MiniPlayer from '@/components/MiniPlayer';
 
@@ -30,6 +31,7 @@ export default function PlaylistDetailScreen() {
 
   const { user } = useAuth();
   const { playSong, pauseSong, resumeSong, isPlaying, currentSong } = useMusicPlayer();
+  const { playSong: playDownloadedSong, pauseSong: pauseDownloadedSong, resumeSong: resumeDownloadedSong, isPlaying: isDownloadedPlaying, currentSong: currentDownloadedSong } = useDownloaderMusicPlayer();
 
   useEffect(() => {
     loadData();
@@ -116,14 +118,38 @@ export default function PlaylistDetailScreen() {
   };
 
   const handlePlaySong = async (song: Song) => {
-    if (currentSong?.id === song.id) {
-      if (isPlaying) {
-        await pauseSong();
+    // Detectar si es una canción descargada (tiene file_path o external_url que apunta a archivo local)
+    const isDownloadedSong = song.external_url && !song.external_url.startsWith('http');
+    
+    if (isDownloadedSong) {
+      // Usar contexto de canciones descargadas
+      if (currentDownloadedSong?.filename === song.title + '.mp3') {
+        if (isDownloadedPlaying) {
+          await pauseDownloadedSong();
+        } else {
+          await resumeDownloadedSong();
+        }
       } else {
-        await resumeSong();
+        // Convertir Song a DownloadedFile para el contexto correcto
+        const downloadedFile = {
+          filename: song.title + '.mp3',
+          file_path: song.external_url,
+          file_size: 0,
+          created_at: Date.now() / 1000
+        };
+        await playDownloadedSong(downloadedFile, [downloadedFile]);
       }
     } else {
-      await playSong(song, songs);
+      // Usar contexto normal de música
+      if (currentSong?.id === song.id) {
+        if (isPlaying) {
+          await pauseSong();
+        } else {
+          await resumeSong();
+        }
+      } else {
+        await playSong(song, songs);
+      }
     }
   };
 

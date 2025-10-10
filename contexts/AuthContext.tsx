@@ -1,6 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+// import { Session, User } from '@supabase/supabase-js'; // Temporalmente comentado
+// import { supabase } from '@/lib/supabase'; // Temporalmente comentado
+
+// Tipos temporales
+type User = {
+  id: string;
+  email: string;
+  user_metadata?: { display_name?: string };
+};
+
+type Session = {
+  user: User;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  expires_at: number;
+  token_type: string;
+};
 
 type AuthContextType = {
   user: User | null;
@@ -15,20 +31,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Usuario simulado para desarrollo (sin login)
-  const mockUser = {
+  const mockUser: User = {
     id: 'dev-user-123',
     email: 'developer@example.com',
     user_metadata: { display_name: 'Developer' }
-  } as User;
+  };
   
-  const mockSession = {
+  const mockSession: Session = {
     user: mockUser,
     access_token: 'mock-token',
     refresh_token: 'mock-refresh',
     expires_in: 3600,
     expires_at: Date.now() / 1000 + 3600,
     token_type: 'bearer'
-  } as Session;
+  };
 
   const [user, setUser] = useState<User | null>(mockUser);
   const [session, setSession] = useState<Session | null>(mockSession);

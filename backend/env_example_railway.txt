@@ -1,0 +1,8 @@
+# Railway Environment Variables
+PORT=8000
+PYTHON_VERSION=3.11.0
+
+# Optional: Custom settings
+LOG_LEVEL=info
+MAX_DOWNLOAD_SIZE=100MB
+TIMEOUT_SECONDS=300

@@ -60,12 +60,13 @@ async def root():
         "endpoints": ["/health", "/search", "/download", "/files"]
     }
 
-@app.get("/download/{filename}")
+@app.get("/download/{filename:path}")
 async def download_file(filename: str):
     """
     Servir archivos descargados
     """
     try:
+        print(f"\n📁 === INICIO DESCARGA ===")
         print(f"📁 Solicitando archivo: {filename}")
         
         # Decodificar el nombre del archivo
@@ -75,23 +76,50 @@ async def download_file(filename: str):
         
         file_path = DOWNLOADS_DIR / decoded_filename
         print(f"📁 Ruta completa: {file_path}")
+        print(f"📁 Directorio downloads existe: {DOWNLOADS_DIR.exists()}")
+        print(f"📁 Archivo existe: {file_path.exists()}")
+        
+        # Listar archivos en el directorio
+        print(f"📁 Archivos en downloads:")
+        for f in DOWNLOADS_DIR.iterdir():
+            print(f"  - {f.name}")
         
         if file_path.exists() and file_path.is_file():
             file_size = file_path.stat().st_size
             print(f"✅ Archivo encontrado, tamaño: {file_size} bytes")
             
+            # Determinar el tipo de media basado en la extensión
+            if decoded_filename.lower().endswith('.m4a'):
+                media_type = 'audio/mp4'
+            elif decoded_filename.lower().endswith('.mp3'):
+                media_type = 'audio/mpeg'
+            elif decoded_filename.lower().endswith('.webm'):
+                media_type = 'audio/webm'
+            else:
+                media_type = 'audio/mpeg'  # Por defecto
+            
+            print(f"✅ Media type: {media_type}")
+            print(f"📁 === FIN DESCARGA OK ===\n")
+            
+            # Sanitizar nombre de archivo para headers HTTP (solo ASCII)
+            import unicodedata
+            safe_filename = decoded_filename.encode('ascii', 'ignore').decode('ascii')
+            if not safe_filename:
+                safe_filename = 'audio.mp3'
+            
             return FileResponse(
                 path=str(file_path),
-                filename=decoded_filename,
-                media_type='audio/mpeg',
+                filename=safe_filename,
+                media_type=media_type,
                 headers={
-                    'Content-Disposition': f'attachment; filename="{decoded_filename}"',
                     'Accept-Ranges': 'bytes',
-                    'Content-Length': str(file_size)
+                    'Content-Length': str(file_size),
+                    'Cache-Control': 'public, max-age=31536000'
                 }
             )
         else:
             print(f"❌ Archivo no encontrado: {file_path}")
+            print(f"📁 === FIN DESCARGA ERROR ===\n")
             raise HTTPException(404, f"Archivo no encontrado: {decoded_filename}")
             
     except HTTPException:
@@ -100,6 +128,7 @@ async def download_file(filename: str):
         print(f"❌ Error sirviendo archivo: {str(e)}")
         import traceback
         traceback.print_exc()
+        print(f"📁 === FIN DESCARGA ERROR ===\n")
         raise HTTPException(500, f"Error sirviendo archivo: {str(e)}")
 
 @app.get("/test-audio")
@@ -258,7 +287,7 @@ async def download_audio(url: str, quality: str = "best"):
         # DESCARGAR MÚSICA REAL CON YT-DLP
         print(f"🔽 Descargando música real desde: {url}")
         
-        # Configurar yt-dlp para descarga real
+        # Configurar yt-dlp para descarga real CON conversión a MP3
         ydl_opts = {
             'format': 'bestaudio[ext=m4a]/bestaudio/best',
             'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
@@ -271,6 +300,16 @@ async def download_audio(url: str, quality: str = "best"):
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
+            'ffmpeg_location': 'C:\\ffmpeg\\bin',  # Ruta específica a FFmpeg
+            # Bypass restricciones de YouTube
+            'age_limit': 0,  # Ignorar restricciones de edad
+            'no_check_certificate': True,
+            'ignoreerrors': True,  # Continuar aunque haya errores
+            'extract_flat': False,
+            'writedescription': False,
+            'writecomments': False,
+            'writeautomaticsub': False,
+            'writesubtitles': False,
         }
         
         try:

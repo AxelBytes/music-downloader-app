@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Home, Library, User } from 'lucide-react-native';
+import { Home, Library, User, Download } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { View, ActivityIndicator } from 'react-native';
 
@@ -38,6 +38,13 @@ export default function TabsLayout() {
         options={{
           title: 'Inicio',
           tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="downloads"
+        options={{
+          title: 'Descargas',
+          tabBarIcon: ({ size, color }) => <Download size={size} color={color} />,
         }}
       />
       <Tabs.Screen
