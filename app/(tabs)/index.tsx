@@ -42,6 +42,15 @@ export default function PremiumHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { user } = useAuth();
+  
+  const handleSearch = (query: string) => {
+    console.log('🔍 handleSearch llamado con:', query);
+    setSearchQuery(query);
+    setSearchQueryContext(query);
+    if (query.trim()) {
+      searchMusic(query);
+    }
+  };
   const { playSong, pauseSong, resumeSong, isPlaying, currentSong } = useMusicPlayer();
   const {
     searchResults,
@@ -256,17 +265,31 @@ export default function PremiumHomeScreen() {
         {/* Search Bar Premium */}
         <Animated.View style={[animatedSearchStyle, styles.searchContainer]}>
           <PremiumGlassCard style={styles.searchCard}>
-            <SearchBar
-              placeholder="Buscar música..."
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={handleSearch}
-              containerStyle={styles.searchContainerStyle}
-              inputContainerStyle={styles.searchInputContainer}
-              inputStyle={styles.searchInput}
-              searchIcon={<Icon name="search" type="feather" color="#8b5cf6" size={20} />}
-              clearIcon={<Icon name="x" type="feather" color="#666" size={20} />}
-            />
+            <View style={styles.searchRow}>
+              <SearchBar
+                placeholder="Buscar música..."
+                placeholderTextColor="#999"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                containerStyle={styles.searchContainerStyle}
+                inputContainerStyle={styles.searchInputContainer}
+                inputStyle={styles.searchInput}
+                searchIcon={<Icon name="search" type="feather" color="#8b5cf6" size={20} />}
+                clearIcon={<Icon name="x" type="feather" color="#666" size={20} />}
+              />
+              <TouchableOpacity 
+                style={styles.searchButton}
+                onPress={() => handleSearch(searchQuery)}
+                disabled={searching || !searchQuery.trim()}
+              >
+                <LinearGradient
+                  colors={['#8b5cf6', '#06b6d4']}
+                  style={styles.searchButtonGradient}
+                >
+                  <Search size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </PremiumGlassCard>
         </Animated.View>
 
@@ -412,6 +435,21 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchButton: {
+    marginLeft: 8,
+  },
+  searchButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchCard: {
     margin: 0,
