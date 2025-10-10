@@ -37,7 +37,7 @@ type DownloadsContextType = {
 
 const DownloadsContext = createContext<DownloadsContextType | undefined>(undefined);
 
-const API_URL = 'http://192.168.100.112:8000';
+const API_URL = 'https://web-production-b6008.up.railway.app';
 
 export function DownloadsProvider({ children }: { children: React.ReactNode }) {
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([]);

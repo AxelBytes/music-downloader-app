@@ -39,7 +39,7 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
   const soundRef = useRef<Audio.Sound | null>(null);
   const { incrementPlayCount } = usePlayCount();
 
-  const API_URL = 'http://192.168.100.112:8000';
+  const API_URL = 'https://web-production-b6008.up.railway.app';
 
   const normalizeUrl = (url: string): string => {
     if (!url.match(/\.(mp3|mp4|wav|m4a|aac)$/i)) {
@@ -76,7 +76,7 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
         if (isExpoGo) {
           // EN EXPO GO: Usar el servidor backend para servir el archivo
           const filename = song.filename;
-          realAudioUri = `http://192.168.100.112:8000/file/${encodeURIComponent(filename)}`;
+          realAudioUri = `https://web-production-b6008.up.railway.app/file/${encodeURIComponent(filename)}`;
           console.log('🎵 [EXPO GO] Reproduciendo vía servidor:', realAudioUri);
         } else {
           // EN BUILD NATIVO: Usar ruta local directa
