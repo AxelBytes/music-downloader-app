@@ -121,7 +121,12 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
     setSearching(true);
     try {
       // Intentar buscar en el backend primero
-      const response = await fetch(`${API_URL}/search?query=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${API_URL}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: query }),
         timeout: 5000, // 5 segundos de timeout
       });
       
