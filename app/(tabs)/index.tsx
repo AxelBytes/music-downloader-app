@@ -42,15 +42,6 @@ export default function PremiumHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { user } = useAuth();
-  
-  const handleSearch = (query: string) => {
-    console.log('🔍 handleSearch llamado con:', query);
-    setSearchQuery(query);
-    setSearchQueryContext(query);
-    if (query.trim()) {
-      searchMusic(query);
-    }
-  };
   const { playSong, pauseSong, resumeSong, isPlaying, currentSong } = useMusicPlayer();
   const {
     searchResults,
@@ -87,6 +78,7 @@ export default function PremiumHomeScreen() {
   };
 
   const handleSearch = async (query: string) => {
+    console.log('🔍 handleSearch llamado con:', query);
     setSearchQuery(query);
     setSearchQueryContext(query);
     if (query.trim()) {
