@@ -1,0 +1,24 @@
+# Frontend files (React Native/Expo)
+node_modules/
+app/
+components/
+contexts/
+hooks/
+theme/
+assets/
+scripts/
+supabase/
+*.json
+package*.json
+tsconfig.json
+expo-env.d.ts
+eas.json
+
+# Development files
+.git/
+.gitignore
+README.md
+*.md
+
+# Keep only backend files
+!backend/
