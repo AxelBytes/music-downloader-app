@@ -127,13 +127,19 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
       const searchUrl = `${API_URL}/search?query=${encodeURIComponent(query)}`;
       console.log('📡 Enviando request a:', searchUrl);
       
+      // Crear AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
+      
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        timeout: 5000, // 5 segundos de timeout
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       
       console.log('📡 Status de respuesta:', response.status);
       console.log('📡 Headers:', response.headers);
@@ -148,10 +154,12 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
       
       if (data.status === 'success' && data.results) {
         console.log('✅ Resultados encontrados:', data.results.length);
+        console.log('🎵 Primer resultado:', data.results[0]);
         setSearchResults(data.results);
         setIsOnline(true); // Marcar como online
       } else {
         console.log('⚠️ No hay resultados o formato incorrecto');
+        console.log('📊 Datos recibidos:', data);
         setSearchResults([]);
       }
     } catch (error: any) {

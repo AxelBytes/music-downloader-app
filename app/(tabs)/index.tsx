@@ -77,6 +77,14 @@ export default function PremiumHomeScreen() {
       setLoading(false);
   };
 
+  // Monitorear cambios en searchResults
+  useEffect(() => {
+    console.log('📊 searchResults cambió:', searchResults.length, 'elementos');
+    if (searchResults.length > 0) {
+      console.log('🎵 Primer resultado:', searchResults[0]);
+    }
+  }, [searchResults]);
+
   const handleSearch = async (query: string) => {
     console.log('🔍 handleSearch llamado con:', query);
     setSearchQuery(query);
