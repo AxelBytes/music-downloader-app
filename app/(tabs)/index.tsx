@@ -281,13 +281,14 @@ export default function PremiumHomeScreen() {
                 clearIcon={<Icon name="x" type="feather" color="#666" size={20} />}
               />
               <TouchableOpacity 
-                style={styles.searchButton}
+                style={[styles.searchButton, (!searchQuery.trim() || searching) && { opacity: 0.5 }]}
                 onPress={() => {
                   console.log('🔘 Botón de búsqueda presionado');
                   console.log('📝 searchQuery actual:', searchQuery);
+                  console.log('🔍 Llamando handleSearch...');
                   handleSearch(searchQuery);
                 }}
-                disabled={searching || !searchQuery.trim()}
+                disabled={false} // Temporalmente deshabilitamos la validación
               >
                 <LinearGradient
                   colors={['#8b5cf6', '#06b6d4']}
@@ -297,6 +298,27 @@ export default function PremiumHomeScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+            
+            {/* Botón de prueba temporal */}
+            <TouchableOpacity 
+              style={{ 
+                backgroundColor: '#ff0000', 
+                padding: 10, 
+                margin: 10, 
+                borderRadius: 5 
+              }}
+              onPress={() => {
+                console.log('🧪 BOTÓN DE PRUEBA PRESIONADO');
+                console.log('🧪 searchQuery:', searchQuery);
+                console.log('🧪 searchResults:', searchResults);
+                console.log('🧪 searching:', searching);
+                handleSearch('bad bunny'); // Búsqueda fija para probar
+              }}
+            >
+              <Text style={{ color: 'white', textAlign: 'center' }}>
+                🧪 PRUEBA BÚSQUEDA
+              </Text>
+            </TouchableOpacity>
           </PremiumGlassCard>
         </Animated.View>
 
