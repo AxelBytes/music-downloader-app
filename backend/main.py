@@ -289,9 +289,9 @@ async def download_audio(url: str, quality: str = "best"):
     🔥 BACKEND PREMIUM - Solo MP3 máxima calidad (320kbps)
     """
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad: {url}")
-        
-        if not url:
-            raise HTTPException(400, "URL es requerida")
+    
+    if not url:
+        raise HTTPException(400, "URL es requerida")
         
     # 🎯 SOLO ESTRATEGIA PREMIUM - MP3 320kbps
     try:
