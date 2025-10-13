@@ -367,7 +367,8 @@ async def download_premium_mp3(url: str, quality: str):
                 'skip': ['dash', 'hls'],
                 'player_skip': ['configs', 'webpage'],
                 'max_comments': [0],
-                'player_client': ['android', 'web'],
+                'player_client': ['android', 'web', 'ios'],
+                'player_url': None,
             }
         },
         # CONFIGURACIÓN ANTI-BOT ULTRA-ROBUSTA
@@ -395,6 +396,17 @@ async def download_premium_mp3(url: str, quality: str):
         'simulate': True,
         'min_filesize': 0,
         'max_filesize': None,
+        # ESTRATEGIAS ADICIONALES ANTI-DETECCIÓN
+        'no_color': True,
+        'prefer_insecure': False,
+        'prefer_ffmpeg': True,
+        # BYPASS ADICIONAL PARA PLAYER RESPONSE
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        # CONFIGURACIÓN AVANZADA
+        'extract_flat': False,
+        'playlistend': None,
+        'playliststart': 1,
     }
     
     return await execute_premium_download(url, ydl_opts, "PREMIUM MP3 320kbps")
