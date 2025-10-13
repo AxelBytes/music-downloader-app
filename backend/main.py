@@ -397,8 +397,8 @@ async def download_premium_mp3(url: str, quality: str):
         # ROTACIÓN DE USER-AGENTS Y BYPASS GEO
         'geo_bypass': True,
         'geo_bypass_country': 'US',
-        # COOKIES Y SESIÓN AVANZADA
-        'cookiesfrombrowser': ('chrome',),
+        # COOKIES Y SESIÓN AVANZADA (DESHABILITADO EN VERCEL)
+        # 'cookiesfrombrowser': ('chrome',),  # No disponible en Vercel
         'nocheckcertificate': True,
         # ESTRATEGIAS ANTI-DETECCIÓN ADICIONALES
         'referer': 'https://www.youtube.com/',
