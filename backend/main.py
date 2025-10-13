@@ -340,12 +340,12 @@ async def download_premium_mp3(url: str, quality: str):
             'writesubtitles': False,
         
         # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
-        'socket_timeout': 90,  # Timeout largo para calidad premium
-        'retries': 5,  # Múltiples reintentos
-        'fragment_retries': 5,  # Reintentos de fragmentos
-        'http_chunk_size': 20971520,  # 20MB chunks para descarga rápida
-        'sleep_interval': 1,
-        'max_sleep_interval': 5,
+        'socket_timeout': 120,  # Timeout muy largo para calidad premium
+        'retries': 10,  # Múltiples reintentos agresivos
+        'fragment_retries': 10,  # Reintentos de fragmentos agresivos
+        'http_chunk_size': 10485760,  # 10MB chunks para descarga más estable
+        'sleep_interval': 0.5,  # Sleep mínimo
+        'max_sleep_interval': 2,  # Sleep máximo reducido
         
         # 💣💣💣 SÚPER MEGA BOMBA ANTI-YOUTUBE 💣💣💣
         # 🔥🔥🔥 HEADERS QUE ARRASAN CON TODO 🔥🔥🔥
@@ -370,7 +370,7 @@ async def download_premium_mp3(url: str, quality: str):
             'CF-Ray': '8a1b2c3d4e5f6g7h',
             'CF-Visitor': '{"scheme":"https"}',
         },
-        # 💣💣💣 BYPASS QUE ARRASA CON YOUTUBE 💣💣💣
+        # 💣💣💣 ESTRATEGIA RADICAL ANTI-BLOQUEO 💣💣💣
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
@@ -383,6 +383,14 @@ async def download_premium_mp3(url: str, quality: str):
                 'innertube_host': 'www.youtube.com',
                 'innertube_key': None,
                 'innertube_context': None,
+                # ESTRATEGIA RADICAL - BYPASS TOTAL
+                'extract_flat': False,
+                'youtube_include_dash_manifest': False,
+                'youtube_include_hls_manifest': False,
+                'youtube_use_native': False,
+                'youtube_use_native_embed': False,
+                'youtube_use_native_ios': False,
+                'youtube_use_native_android': False,
             }
         },
         # 💣💣💣 CONFIGURACIÓN ANTI-BOT QUE ARRASA CON TODO 💣💣💣
@@ -450,7 +458,24 @@ async def download_premium_mp3(url: str, quality: str):
         'youtube_skip_download': False,
     }
     
-    return await execute_premium_download(url, ydl_opts, "PREMIUM MP3 320kbps")
+    # ESTRATEGIA RADICAL - MÚLTIPLES INTENTOS CON DIFERENTES CONFIGURACIONES
+    strategies = [
+        ("PREMIUM MP3 320kbps", ydl_opts),
+        ("FALLBACK MP3 256kbps", {**ydl_opts, 'format': 'bestaudio[ext=m4a]/bestaudio/best'}),
+        ("EMERGENCY MP3 128kbps", {**ydl_opts, 'format': 'worstaudio/worst'}),
+    ]
+    
+    for strategy_name, strategy_opts in strategies:
+        try:
+            print(f"🔥 Intentando estrategia: {strategy_name}")
+            result = await execute_premium_download(url, strategy_opts, strategy_name)
+            if result and result.get("status") == "success":
+                return result
+        except Exception as e:
+            print(f"❌ Estrategia {strategy_name} falló: {str(e)}")
+            continue
+    
+    raise Exception("Todas las estrategias de descarga fallaron")
 
 async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str):
     """
