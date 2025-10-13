@@ -2,8 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, Database } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Playlist = Database['public']['Tables']['playlists']['Row'];
+// type Song = Database['public']['Tables']['songs']['Row']; // Tabla no existe
+// type Playlist = Database['public']['Tables']['playlists']['Row']; // Tabla no existe
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  audio_url: string;
+  thumbnail_url: string;
+};
+type Playlist = {
+  id: string;
+  name: string;
+  user_id: string;
+  songs: any;
+  created_at: string;
+};
 
 export type SearchResult = {
   songs: Song[];

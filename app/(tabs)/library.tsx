@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 import { Card, Button, Icon, Avatar, Badge, Input } from '@rneui/themed';
 import Animated, { 
   useSharedValue, 
@@ -28,9 +29,11 @@ import { supabase, Database } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadsContext';
 import { useDownloaderMusicPlayer } from '@/contexts/DownloaderMusicPlayerContext';
+import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
+import { usePlaylists } from '@/contexts/PlaylistContext';
 import { PremiumGlassCard, PremiumButton } from '@/components/PremiumComponents';
 
-type Playlist = Database['public']['Tables']['playlists']['Row'];
+type Playlist = Database['public']['Tables']['user_playlists']['Row'];
 
 export default function PremiumLibraryScreen() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -38,14 +41,15 @@ export default function PremiumLibraryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const [newPlaylistDescription, setNewPlaylistDescription] = useState('');
   const [showDownloads, setShowDownloads] = useState(true);
   const [selectedSong, setSelectedSong] = useState<any>(null);
   const [playlistSelectorVisible, setPlaylistSelectorVisible] = useState(false);
 
   const { user } = useAuth();
   const { downloadedFiles, loadDownloadedFiles, deleteFile } = useDownloads();
-  const { playSong } = useDownloaderMusicPlayer();
+  const { playSong: playDownloadedSong, isPlaying: isDownloadedPlaying, currentSong: currentDownloadedSong } = useDownloaderMusicPlayer();
+  const { playSong: playOnlineSong, isPlaying: isOnlinePlaying, currentSong: currentOnlineSong } = useMusicPlayer();
+  const { addSongToPlaylist } = usePlaylists();
 
   useEffect(() => {
     console.log('📚 Biblioteca cargando...');
@@ -65,15 +69,23 @@ export default function PremiumLibraryScreen() {
     if (!user) return;
 
     try {
+      console.log('📋 [Library] Cargando playlists para usuario:', user.id);
+      
       const { data, error } = await supabase
-        .from('playlists')
+        .from('user_playlists')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setPlaylists(data);
+      if (error) {
+        console.error('❌ [Library] Error cargando playlists:', error);
+        return;
       }
+
+      console.log('✅ [Library] Playlists cargadas:', data?.length || 0);
+      setPlaylists(data || []);
+    } catch (error) {
+      console.error('❌ [Library] Error inesperado cargando playlists:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -83,33 +95,97 @@ export default function PremiumLibraryScreen() {
   const createPlaylist = async () => {
     if (!user || !newPlaylistName.trim()) return;
 
-    const { error } = await supabase.from('playlists').insert({
-      user_id: user.id,
-      name: newPlaylistName.trim(),
-      description: newPlaylistDescription.trim() || null,
-    });
+    try {
+      console.log('📋 [Library] Creando playlist:', newPlaylistName.trim());
+      
+      const { data, error } = await supabase
+        .from('user_playlists')
+        .insert({
+          user_id: user.id,
+          name: newPlaylistName.trim(),
+          songs: [],
+        })
+        .select()
+        .single();
 
-    if (!error) {
+      if (error) {
+        console.error('❌ [Library] Error creando playlist:', error);
+        Alert.alert('Error', 'No se pudo crear la playlist');
+        return;
+      }
+
+      console.log('✅ [Library] Playlist creada exitosamente:', data);
+      
       setModalVisible(false);
       setNewPlaylistName('');
-      setNewPlaylistDescription('');
       loadPlaylists();
+      
+      Alert.alert('Éxito', 'Playlist creada correctamente');
+    } catch (error) {
+      console.error('❌ [Library] Error inesperado:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
   const deletePlaylist = async (playlistId: string) => {
-    const { error } = await supabase
-      .from('playlists')
-      .delete()
-      .eq('id', playlistId);
+    try {
+      console.log('🗑️ [Library] Eliminando playlist:', playlistId);
+      
+      const { error } = await supabase
+        .from('user_playlists')
+        .delete()
+        .eq('id', playlistId)
+        .eq('user_id', user?.id);
 
-    if (!error) {
+      if (error) {
+        console.error('❌ [Library] Error eliminando playlist:', error);
+        Alert.alert('Error', 'No se pudo eliminar la playlist');
+        return;
+      }
+
+      console.log('✅ [Library] Playlist eliminada exitosamente');
       loadPlaylists();
+    } catch (error) {
+      console.error('❌ [Library] Error inesperado eliminando playlist:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
   const handlePlaySong = async (file: any) => {
-    await playSong(file, downloadedFiles);
+    console.log('🎵 Reproduciendo desde biblioteca:', file.filename);
+    
+    // Para archivos descargados, siempre usar el contexto de descargas
+    if (currentDownloadedSong?.filename === file.filename) {
+      if (isDownloadedPlaying) {
+        await playDownloadedSong(file); // Pausar/Reanudar
+      } else {
+        await playDownloadedSong(file);
+      }
+    } else {
+      await playDownloadedSong(file, downloadedFiles);
+    }
+  };
+
+  const handleAddToPlaylist = async (playlistId: string) => {
+    if (!selectedSong) return;
+
+    try {
+      console.log('🎵 [Library] Agregando canción a playlist:', playlistId);
+      
+      const success = await addSongToPlaylist(playlistId, selectedSong);
+      
+      if (success) {
+        Alert.alert('¡Éxito!', 'Canción agregada a la playlist');
+        setPlaylistSelectorVisible(false);
+        setSelectedSong(null);
+        loadPlaylists(); // Recargar playlists para actualizar el contador
+      } else {
+        Alert.alert('Error', 'No se pudo agregar la canción a la playlist');
+      }
+    } catch (error) {
+      console.error('❌ [Library] Error agregando a playlist:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
+    }
   };
 
   const handleDeleteFile = (filename: string) => {
@@ -209,16 +285,16 @@ export default function PremiumLibraryScreen() {
     <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.playlistCardContainer}>
       <PremiumGlassCard
         style={styles.playlistCard}
-        onPress={() => {/* Navigate to playlist */}}
+        onPress={() => router.push(`/playlist/${item.id}`)}
       >
         <View style={styles.playlistContent}>
           <View style={styles.playlistIcon}>
             <LinearGradient
-              colors={item.is_favorite_playlist ? ['#ef4444', '#f59e0b'] : ['#8b5cf6', '#06b6d4']}
+              colors={['#8b5cf6', '#06b6d4']}
               style={styles.playlistIconGradient}
             >
               <Icon 
-                name={item.is_favorite_playlist ? "heart" : "music"} 
+                name="music" 
                 type="feather" 
                 color="#fff" 
                 size={24} 
@@ -230,21 +306,17 @@ export default function PremiumLibraryScreen() {
             <Text style={styles.playlistName} numberOfLines={1}>
               {item.name}
             </Text>
-            {item.description && (
-              <Text style={styles.playlistDescription} numberOfLines={2}>
-                {item.description}
-              </Text>
-            )}
+            <Text style={styles.playlistDescription} numberOfLines={2}>
+              {Array.isArray(item.songs) ? `${item.songs.length} canciones` : '0 canciones'}
+            </Text>
           </View>
 
-          {!item.is_favorite_playlist && (
-            <TouchableOpacity
+          <TouchableOpacity
               style={styles.deleteButton}
               onPress={() => deletePlaylist(item.id)}
             >
               <Icon name="trash-2" type="feather" color="#ef4444" size={20} />
             </TouchableOpacity>
-          )}
         </View>
       </PremiumGlassCard>
     </Animated.View>
@@ -473,14 +545,6 @@ export default function PremiumLibraryScreen() {
                   autoFocus
                 />
 
-                <Input
-                  placeholder="Descripción (opcional)"
-                  placeholderTextColor="#666"
-                  value={newPlaylistDescription}
-                  onChangeText={setNewPlaylistDescription}
-                  multiline
-                  numberOfLines={3}
-                />
 
                 <PremiumButton
                   title="Crear Playlist"
@@ -492,86 +556,72 @@ export default function PremiumLibraryScreen() {
           </BlurView>
         </Modal>
 
-        {/* Modal Premium para seleccionar playlist */}
+        {/* Modal simple para agregar a playlist */}
         <Modal
           visible={playlistSelectorVisible}
           transparent
           animationType="fade"
           onRequestClose={() => setPlaylistSelectorVisible(false)}
         >
-          <BlurView intensity={20} style={styles.modalOverlay}>
-            <Animated.View entering={SlideInUp} style={styles.modalContent}>
-              <LinearGradient
-                colors={['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.1)']}
-                style={styles.modalGradient}
-              >
+          <View style={styles.modalOverlay}>
+            <BlurView intensity={20} style={styles.modalContainer}>
+              <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Agregar a Playlist</Text>
-                  <TouchableOpacity onPress={() => setPlaylistSelectorVisible(false)}>
+                  <TouchableOpacity
+                    onPress={() => setPlaylistSelectorVisible(false)}
+                    style={styles.closeButton}
+                  >
                     <Icon name="x" type="feather" color="#fff" size={24} />
                   </TouchableOpacity>
                 </View>
 
                 {selectedSong && (
-                  <Text style={styles.selectedSongText}>
-                    {selectedSong.filename.replace(/\.(mp3|m4a|webm)$/i, '')}
-                  </Text>
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle} numberOfLines={1}>
+                      {selectedSong.title || selectedSong.filename?.replace(/\.(mp3|m4a|webm)$/i, '')}
+                    </Text>
+                    <Text style={styles.songArtist} numberOfLines={1}>
+                      {selectedSong.artist || 'Artista Desconocido'}
+                    </Text>
+                  </View>
                 )}
 
                 {playlists.length === 0 ? (
-                  <View style={styles.noPlaylistsContainer}>
-                    <Icon name="music" type="feather" size={48} color="#666" />
-                    <Text style={styles.noPlaylistsText}>No tienes playlists</Text>
-                    <Text style={styles.noPlaylistsSubtext}>
-                      Crea una playlist primero
+                  <View style={styles.emptyState}>
+                    <Icon name="music" type="feather" color="#8b5cf6" size={48} />
+                    <Text style={styles.emptyTitle}>No tienes playlists</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Crea una playlist primero para agregar canciones
                     </Text>
-                    <PremiumButton
-                      title="Crear Playlist"
-                      onPress={() => {
-                        setPlaylistSelectorVisible(false);
-                        setModalVisible(true);
-                      }}
-                    />
                   </View>
                 ) : (
                   <FlatList
                     data={playlists}
-                    keyExtractor={item => item.id}
+                    keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                       <TouchableOpacity
-                        style={styles.playlistOption}
-                        onPress={() => addToPlaylist(item.id)}
+                        style={styles.playlistItem}
+                        onPress={() => handleAddToPlaylist(item.id)}
                       >
-                        <View style={styles.playlistOptionInfo}>
-                          <LinearGradient
-                            colors={['#8b5cf6', '#06b6d4']}
-                            style={styles.playlistOptionIcon}
-                          >
-                            <Icon name="music" type="feather" color="#fff" size={24} />
-                          </LinearGradient>
-                          <View style={styles.playlistOptionDetails}>
-                            <Text style={styles.playlistOptionTitle}>{item.name}</Text>
-                            {item.description && (
-                              <Text style={styles.playlistOptionDescription} numberOfLines={1}>
-                                {item.description}
-                              </Text>
-                            )}
+                        <View style={styles.playlistContent}>
+                          <View style={styles.playlistInfo}>
+                            <Icon name="music" type="feather" color="#8b5cf6" size={20} />
+                            <Text style={styles.playlistName}>{item.name}</Text>
+                            <Text style={styles.playlistCount}>
+                              {item.songs?.length || 0} canciones
+                            </Text>
                           </View>
+                          <Icon name="plus" type="feather" color="#06b6d4" size={20} />
                         </View>
-                        <LinearGradient
-                          colors={['#10b981', '#06b6d4']}
-                          style={styles.addIconGradient}
-                        >
-                          <Icon name="plus" type="feather" color="#fff" size={20} />
-                        </LinearGradient>
                       </TouchableOpacity>
                     )}
                     style={styles.playlistList}
                   />
                 )}
-              </LinearGradient>
-            </Animated.View>
-          </BlurView>
+              </View>
+            </BlurView>
+          </View>
         </Modal>
       </LinearGradient>
     </View>
@@ -871,5 +921,59 @@ const styles = StyleSheet.create({
   playlistOptionDescription: {
     fontSize: 12,
     color: '#999',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  songInfo: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+  },
+  songTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  songArtist: {
+    fontSize: 14,
+    color: '#999',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  playlistItem: {
+    marginBottom: 10,
+  },
+  playlistCount: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 10,
   },
 });

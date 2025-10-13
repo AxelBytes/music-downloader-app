@@ -14,7 +14,7 @@ import {
 import { Search, Download, Music, Play, Trash2, ExternalLink, Pause, SkipBack, SkipForward } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Card, Button, Icon, Avatar, Badge, ProgressBar } from '@rneui/themed';
+import { Card, Button, Icon, Avatar, Badge } from '@rneui/themed';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -66,6 +66,7 @@ export default function PremiumMusicDownloader() {
   const [searching, setSearching] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
+  const [songProgress, setSongProgress] = useState<Record<string, number>>({});
   const [currentSong, setCurrentSong] = useState<DownloadedFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showDownloaded, setShowDownloaded] = useState(true);
@@ -85,9 +86,14 @@ export default function PremiumMusicDownloader() {
 
       // Primero intentar cargar desde el backend
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const response = await fetch(`${API_URL}/downloads`, {
-          timeout: 5000,
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
 
         if (response.ok) {
           const data = await response.json();
@@ -148,40 +154,68 @@ export default function PremiumMusicDownloader() {
     }
 
     setSearching(true);
+    setShowDownloaded(false); // Cambiar a vista de búsqueda
+    console.log('🔍 [MusicDownloader] Iniciando búsqueda:', query);
+    console.log('🌐 [MusicDownloader] URL del backend:', API_URL);
+    console.log('📱 [MusicDownloader] Cambiando a vista de búsqueda');
+    
     try {
-      const response = await fetch(`${API_URL}/search?query=${encodeURIComponent(query)}`, {
-        timeout: 5000,
+      const searchUrl = `${API_URL}/search?query=${encodeURIComponent(query)}`;
+      console.log('📡 [MusicDownloader] Enviando request a:', searchUrl);
+      
+      // Crear AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos
+      
+      const response = await fetch(searchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('📡 [MusicDownloader] Status de respuesta:', response.status);
 
       if (!response.ok) {
-        throw new Error('Backend no disponible');
+        console.error('❌ [MusicDownloader] Error en respuesta:', response.status);
+        throw new Error(`Backend error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('📡 [MusicDownloader] Respuesta del servidor:', data);
 
       if (data.status === 'success' && data.results) {
+        console.log('✅ [MusicDownloader] Resultados encontrados:', data.results.length);
+        console.log('🎵 [MusicDownloader] Primer resultado:', data.results[0]);
         setSearchResults(data.results);
       } else {
+        console.log('⚠️ [MusicDownloader] No hay resultados o formato incorrecto');
+        console.log('📊 [MusicDownloader] Datos recibidos:', data);
         setSearchResults([]);
       }
     } catch (error: any) {
+      console.error('❌ [MusicDownloader] Error en búsqueda:', error);
       console.log('🔌 Modo offline: Backend no disponible, buscando en archivos locales...');
-
-      // MODO OFFLINE: Buscar en archivos descargados localmente
-      const localResults = downloadedFiles.filter(file =>
+      
+      // Fallback: buscar en archivos descargados localmente
+      const localResults = downloadedFiles.filter(file => 
         file.filename.toLowerCase().includes(query.toLowerCase())
       ).map(file => ({
         id: file.filename,
         title: file.filename.replace(/\.(mp3|m4a|webm)$/i, ''),
-        artist: 'Archivo Local',
-        duration: 0,
-        thumbnail: '',
+        artist: 'Archivo local',
+        thumbnail: 'https://via.placeholder.com/300x300/8b5cf6/ffffff?text=🎵',
+        thumbnail_url: 'https://via.placeholder.com/300x300/8b5cf6/ffffff?text=🎵',
         url: file.file_path,
-        view_count: 0,
+        duration: 0,
+        view_count: 0
       }));
-
+      
       setSearchResults(localResults);
-      console.log(`📱 Encontrados ${localResults.length} archivos locales`);
+      console.log(`✅ [MusicDownloader] ${localResults.length} archivos locales encontrados`);
     } finally {
       setSearching(false);
     }
@@ -189,6 +223,7 @@ export default function PremiumMusicDownloader() {
 
   const downloadMusic = async (song: SearchResult) => {
     const taskId = Date.now().toString();
+    let progressInterval: any = null;
     
     // Agregar tarea de descarga
     setDownloadTasks(prev => [...prev, {
@@ -198,51 +233,97 @@ export default function PremiumMusicDownloader() {
       progress: 0,
     }]);
 
+    // Inicializar progreso de la canción
+    setSongProgress(prev => ({ ...prev, [song.id]: 0 }));
+
     setDownloading(true);
 
     try {
       console.log(`🎵 Descargando: ${song.title}`);
+      console.log(`🔗 URL: ${song.url}`);
+      console.log(`👤 Artista: ${song.artist}`);
       
-      const response = await fetch(`${API_URL}/download`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutos de timeout
+      
+      // El backend espera los parámetros como query parameters, no como JSON body
+      const downloadUrl = `${API_URL}/download?url=${encodeURIComponent(song.url)}&quality=best`;
+      console.log('📡 [Download] URL de descarga:', downloadUrl);
+      
+      // Simular progreso de descarga
+      progressInterval = setInterval(() => {
+        setSongProgress(prev => {
+          const currentProgress = prev[song.id] || 0;
+          if (currentProgress < 85) {
+            // Progreso más realista y gradual
+            const increment = Math.random() * 8 + 2; // Entre 2-10%
+            return { ...prev, [song.id]: Math.min(85, currentProgress + increment) };
+          }
+          return prev;
+        });
+      }, 800); // Intervalo más lento para mejor UX
+      
+      const response = await fetch(downloadUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          url: song.url,
-          title: song.title,
-          artist: song.artist,
-        }),
-        timeout: 300000, // 5 minutos de timeout
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
+      console.log('📡 [Download] Status de respuesta:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ [Download] Error del backend:', errorData);
         throw new Error(errorData.message || 'Error en la descarga');
       }
 
       const data = await response.json();
+      console.log('📡 [Download] Respuesta del servidor:', data);
 
       if (data.status === 'success') {
         console.log(`✅ Descarga completada: ${data.filename}`);
         
-        // Actualizar estado de la tarea
+        // Limpiar intervalo de progreso
+        if (progressInterval) clearInterval(progressInterval);
+        
+        // Completar progreso
+        setSongProgress(prev => ({ ...prev, [song.id]: 100 }));
+        
+        // Actualizar estado de la tarea con validación
         setDownloadTasks(prev => prev.map(task => 
           task.id === taskId 
-            ? { ...task, status: 'completed', progress: 100, file_path: data.path }
+            ? { 
+                ...task, 
+                status: 'completed', 
+                progress: 100, 
+                file_path: data.path || data.filename || 'unknown'
+              }
             : task
         ));
 
-        // Recargar archivos descargados
-        await loadDownloadedFiles();
+        // Recargar archivos descargados con manejo de errores
+        try {
+          await loadDownloadedFiles();
+          console.log('📂 Archivos recargados correctamente');
+        } catch (reloadError) {
+          console.warn('⚠️ Error recargando archivos:', reloadError);
+          // No es crítico, la descarga ya se completó
+        }
         
-        Alert.alert('¡Éxito!', 'Canción descargada correctamente');
+        Alert.alert('✨ ¡Descarga Premium Completada!', 'Tu música ha sido descargada en la máxima calidad disponible');
       } else {
         throw new Error(data.message || 'Error en la descarga');
       }
 
     } catch (error: any) {
       console.error('❌ Error descargando:', error);
+      
+      // Limpiar intervalo de progreso en caso de error
+      if (progressInterval) clearInterval(progressInterval);
       
       // Actualizar estado de la tarea con error
       setDownloadTasks(prev => prev.map(task => 
@@ -251,28 +332,40 @@ export default function PremiumMusicDownloader() {
           : task
       ));
 
-      let errorMessage = 'Error desconocido';
+      let errorMessage = 'Lo sentimos, ocurrió un error inesperado';
       
-      if (error.message.includes('Network request failed')) {
-        errorMessage = 'Sin conexión al servidor. Verifica tu internet.';
-      } else if (error.message.includes('timeout')) {
-        errorMessage = 'Tiempo de espera agotado. Intenta de nuevo.';
+      if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+        errorMessage = 'Sin conexión al servidor. Verifica tu conexión a internet.';
+      } else if (error.message.includes('timeout') || error.name === 'AbortError') {
+        errorMessage = 'La descarga está tomando más tiempo del esperado. Intenta de nuevo.';
       } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
-        errorMessage = 'Video restringido. No se puede descargar.';
+        errorMessage = 'Este contenido está restringido y no se puede descargar.';
       } else if (error.message.includes('404') || error.message.includes('Not Found')) {
-        errorMessage = 'Video no encontrado. Verifica el enlace.';
+        errorMessage = 'No se encontró el contenido solicitado.';
+      } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+        errorMessage = 'Servidor temporalmente no disponible. Intenta más tarde.';
       } else {
-        errorMessage = error.message || 'Error en la descarga';
+        errorMessage = 'No se pudo completar la descarga. Intenta de nuevo.';
       }
 
-      Alert.alert('Error', errorMessage);
+      Alert.alert('❌ Error en Descarga', errorMessage);
     } finally {
+      // Limpiar estado de descarga
       setDownloading(false);
       
-      // Limpiar tarea después de 3 segundos
+      // Limpiar progreso de la canción después de completar
+      setTimeout(() => {
+        setSongProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[song.id];
+          return newProgress;
+        });
+      }, 2000);
+      
+      // Remover tarea de descarga después de 5 segundos
       setTimeout(() => {
         setDownloadTasks(prev => prev.filter(task => task.id !== taskId));
-      }, 3000);
+      }, 5000);
     }
   };
 
@@ -320,9 +413,11 @@ export default function PremiumMusicDownloader() {
     }
   };
 
-  const renderPremiumSearchResult = ({ item }: { item: SearchResult }) => (
-    <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.resultContainer}>
-      <PremiumGlassCard style={styles.resultCard}>
+  const renderPremiumSearchResult = ({ item }: { item: SearchResult }) => {
+    console.log('🎨 Renderizando resultado:', item.title);
+    return (
+      <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.resultContainer}>
+        <PremiumGlassCard style={styles.resultCard}>
         <View style={styles.resultContent}>
           <View style={styles.resultInfo}>
             <View style={styles.resultThumbnail}>
@@ -350,14 +445,33 @@ export default function PremiumMusicDownloader() {
           <View style={styles.resultActions}>
             <TouchableOpacity
               style={styles.resultActionButton}
-              onPress={() => downloadMusic(item)}
-              disabled={downloading}
+              onPress={() => {
+                console.log('🔘 Botón de descarga presionado para:', item.title);
+                downloadMusic(item);
+              }}
+              disabled={downloading || songProgress[item.id] > 0}
             >
               <LinearGradient
                 colors={['#8b5cf6', '#06b6d4']}
                 style={styles.actionButtonGradient}
               >
-                {downloading ? (
+                {songProgress[item.id] > 0 && songProgress[item.id] < 100 ? (
+                  <View style={styles.downloadProgressContainer}>
+                    <View style={styles.downloadProgressBackground}>
+                      <View 
+                        style={[
+                          styles.downloadProgressFill, 
+                          { width: `${songProgress[item.id]}%` }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.downloadProgressText}>
+                      {Math.round(songProgress[item.id])}%
+                    </Text>
+                  </View>
+                ) : songProgress[item.id] === 100 ? (
+                  <Icon name="check" type="feather" color="#fff" size={20} />
+                ) : downloading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Icon name="download" type="feather" color="#fff" size={20} />
@@ -368,7 +482,8 @@ export default function PremiumMusicDownloader() {
         </View>
       </PremiumGlassCard>
     </Animated.View>
-  );
+    );
+  };
 
   const renderPremiumDownloadedFile = ({ item }: { item: DownloadedFile }) => (
     <Animated.View entering={FadeInRight.delay(Math.random() * 200)} style={styles.downloadedContainer}>
@@ -441,11 +556,17 @@ export default function PremiumMusicDownloader() {
                  item.status === 'failed' ? 'Error en descarga' : 'Descargando...'}
               </Text>
               {item.status === 'downloading' && (
-                <ProgressBar 
-                  progress={item.progress / 100}
-                  color="#8b5cf6"
-                  style={styles.taskProgress}
-                />
+                <View style={styles.taskProgressContainer}>
+                  <View style={styles.taskProgressBar}>
+                    <View 
+                      style={[
+                        styles.taskProgressFill, 
+                        { width: `${item.progress}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.taskProgressText}>{item.progress}%</Text>
+                </View>
               )}
               {item.error && (
                 <Text style={styles.taskError}>{item.error}</Text>
@@ -513,7 +634,10 @@ export default function PremiumMusicDownloader() {
         <Animated.View entering={FadeInDown.delay(400)} style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, showDownloaded && styles.tabActive]}
-            onPress={() => setShowDownloaded(true)}
+            onPress={() => {
+              console.log('📂 Cambiando a vista: Descargadas');
+              setShowDownloaded(true);
+            }}
           >
             <LinearGradient
               colors={showDownloaded ? ['#8b5cf6', '#06b6d4'] : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
@@ -528,7 +652,10 @@ export default function PremiumMusicDownloader() {
           
           <TouchableOpacity
             style={[styles.tab, !showDownloaded && styles.tabActive]}
-            onPress={() => setShowDownloaded(false)}
+            onPress={() => {
+              console.log('🔍 Cambiando a vista: Búsqueda');
+              setShowDownloaded(false);
+            }}
           >
             <LinearGradient
               colors={!showDownloaded ? ['#8b5cf6', '#06b6d4'] : ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
@@ -592,6 +719,8 @@ export default function PremiumMusicDownloader() {
               keyExtractor={(item) => item.id}
               renderItem={renderPremiumSearchResult}
               contentContainerStyle={styles.listContent}
+              onLayout={() => console.log('📱 FlatList de búsqueda renderizado')}
+              onContentSizeChange={() => console.log('📏 FlatList tamaño cambiado, resultados:', searchResults.length)}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <LinearGradient
@@ -737,9 +866,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 4,
   },
-  taskProgress: {
+  taskProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  taskProgressBar: {
+    flex: 1,
     height: 4,
+    backgroundColor: '#333',
     borderRadius: 2,
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  taskProgressFill: {
+    height: '100%',
+    backgroundColor: '#8b5cf6',
+    borderRadius: 2,
+  },
+  taskProgressText: {
+    fontSize: 12,
+    color: '#8b5cf6',
+    fontWeight: '600',
+    minWidth: 35,
   },
   taskError: {
     fontSize: 12,
@@ -842,6 +991,29 @@ const styles = StyleSheet.create({
   downloadedSize: {
     fontSize: 12,
     color: '#999',
+  },
+  downloadProgressContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  downloadProgressBackground: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  downloadProgressFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
+  downloadProgressText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
   },
   downloadedActions: {
     flexDirection: 'row',

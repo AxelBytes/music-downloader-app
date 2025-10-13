@@ -13,22 +13,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Card, Button, Icon, Avatar, Badge, SearchBar } from '@rneui/themed';
 import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
-  withTiming,
-  interpolate,
-  Extrapolate,
   FadeInDown,
   FadeInRight,
-  SlideInUp
 } from 'react-native-reanimated';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useDownloads } from '@/contexts/DownloadsContext';
 import { useDownloaderMusicPlayer } from '@/contexts/DownloaderMusicPlayerContext';
+import { usePlaylists } from '@/contexts/PlaylistContext';
 import { PremiumGlassCard, PremiumButton, PremiumMusicCard, PremiumLoading } from '@/components/PremiumComponents';
 import NetworkStatus from '@/components/NetworkStatus';
+import NetworkStatusIcon from '@/components/NetworkStatusIcon';
 import { router } from 'expo-router';
 import { Download, Search, Music, Check, Play, Headphones, Clock, Heart } from 'lucide-react-native';
 
@@ -43,6 +38,7 @@ export default function PremiumHomeScreen() {
 
   const { user } = useAuth();
   const { playSong, pauseSong, resumeSong, isPlaying, currentSong } = useMusicPlayer();
+  const { playlists } = usePlaylists();
   const {
     searchResults,
     searching,
@@ -58,17 +54,8 @@ export default function PremiumHomeScreen() {
   const { playSong: playDownloadedSong } = useDownloaderMusicPlayer();
 
   // Animaciones
-  const headerOpacity = useSharedValue(0);
-  const searchOpacity = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
-
   useEffect(() => {
     loadInitialData();
-    
-    // Animaciones de entrada
-    headerOpacity.value = withTiming(1, { duration: 800 });
-    searchOpacity.value = withTiming(1, { duration: 800, delay: 200 });
-    contentOpacity.value = withTiming(1, { duration: 800, delay: 400 });
   }, []);
 
   const loadInitialData = async () => {
@@ -77,16 +64,8 @@ export default function PremiumHomeScreen() {
       setLoading(false);
   };
 
-  // Monitorear cambios en searchResults
-  useEffect(() => {
-    console.log('📊 searchResults cambió:', searchResults.length, 'elementos');
-    if (searchResults.length > 0) {
-      console.log('🎵 Primer resultado:', searchResults[0]);
-    }
-  }, [searchResults]);
 
   const handleSearch = async (query: string) => {
-    console.log('🔍 handleSearch llamado con:', query);
     setSearchQuery(query);
     setSearchQueryContext(query);
     if (query.trim()) {
@@ -104,7 +83,7 @@ export default function PremiumHomeScreen() {
         await playDownloadedSong(downloadedFile, downloadedFiles);
       }
     } else {
-      await playSong(song, searchResults);
+      await playSong(song, []); // Usar array vacío temporalmente
     }
   };
 
@@ -177,41 +156,20 @@ export default function PremiumHomeScreen() {
         </PremiumGlassCard>
 
         <PremiumGlassCard style={styles.actionCard}>
-          <TouchableOpacity style={styles.actionContent} onPress={() => router.push('/(tabs)/library')}>
+          <TouchableOpacity style={styles.actionContent} onPress={() => router.push('/playlists')}>
             <LinearGradient
               colors={['#f59e0b', '#ef4444']}
               style={styles.actionIcon}
             >
               <Heart size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.actionText}>Favoritos</Text>
+            <Text style={styles.actionText}>Playlists</Text>
           </TouchableOpacity>
         </PremiumGlassCard>
       </View>
     </Animated.View>
   );
 
-  const animatedHeaderStyle = useAnimatedStyle(() => ({
-    opacity: headerOpacity.value,
-    transform: [
-      {
-        translateY: interpolate(headerOpacity.value, [0, 1], [-50, 0], Extrapolate.CLAMP),
-      },
-    ],
-  }));
-
-  const animatedSearchStyle = useAnimatedStyle(() => ({
-    opacity: searchOpacity.value,
-    transform: [
-      {
-        translateY: interpolate(searchOpacity.value, [0, 1], [-30, 0], Extrapolate.CLAMP),
-      },
-    ],
-  }));
-
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
 
   if (loading) {
     return (
@@ -241,7 +199,7 @@ export default function PremiumHomeScreen() {
         </TouchableOpacity>
 
         {/* Header Premium */}
-        <Animated.View style={[animatedHeaderStyle, styles.header]}>
+        <Animated.View entering={FadeInDown.delay(200)} style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.userInfo}>
               <Avatar
@@ -263,32 +221,26 @@ export default function PremiumHomeScreen() {
         </Animated.View>
 
         {/* Search Bar Premium */}
-        <Animated.View style={[animatedSearchStyle, styles.searchContainer]}>
+        <Animated.View entering={FadeInDown.delay(400)} style={styles.searchContainer}>
           <PremiumGlassCard style={styles.searchCard}>
             <View style={styles.searchRow}>
-              <SearchBar
-                placeholder="Buscar música..."
-                placeholderTextColor="#999"
-                value={searchQuery}
-                onChangeText={(text) => {
-                  console.log('📝 SearchBar cambió a:', text);
-                  setSearchQuery(text);
-                }}
-                containerStyle={styles.searchContainerStyle}
-                inputContainerStyle={styles.searchInputContainer}
-                inputStyle={styles.searchInput}
-                searchIcon={<Icon name="search" type="feather" color="#8b5cf6" size={20} />}
-                clearIcon={<Icon name="x" type="feather" color="#666" size={20} />}
-              />
+              <View style={styles.searchInputWrapper}>
+                <SearchBar
+                  placeholder="Buscar música descargada..."
+                  placeholderTextColor="#999"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  containerStyle={styles.searchContainerStyle}
+                  inputContainerStyle={styles.searchInputContainer}
+                  inputStyle={styles.searchInput}
+                  searchIcon={<Icon name="search" type="feather" color="#8b5cf6" size={20} />}
+                  clearIcon={<Icon name="x" type="feather" color="#666" size={20} />}
+                />
+              </View>
               <TouchableOpacity 
                 style={[styles.searchButton, (!searchQuery.trim() || searching) && { opacity: 0.5 }]}
-                onPress={() => {
-                  console.log('🔘 Botón de búsqueda presionado');
-                  console.log('📝 searchQuery actual:', searchQuery);
-                  console.log('🔍 Llamando handleSearch...');
-                  handleSearch(searchQuery);
-                }}
-                disabled={false} // Temporalmente deshabilitamos la validación
+                onPress={() => handleSearch(searchQuery)}
+                disabled={!searchQuery.trim() || searching}
               >
                 <LinearGradient
                   colors={['#8b5cf6', '#06b6d4']}
@@ -298,32 +250,11 @@ export default function PremiumHomeScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-            
-            {/* Botón de prueba temporal */}
-            <TouchableOpacity 
-              style={{ 
-                backgroundColor: '#ff0000', 
-                padding: 10, 
-                margin: 10, 
-                borderRadius: 5 
-              }}
-              onPress={() => {
-                console.log('🧪 BOTÓN DE PRUEBA PRESIONADO');
-                console.log('🧪 searchQuery:', searchQuery);
-                console.log('🧪 searchResults:', searchResults);
-                console.log('🧪 searching:', searching);
-                handleSearch('bad bunny'); // Búsqueda fija para probar
-              }}
-            >
-              <Text style={{ color: 'white', textAlign: 'center' }}>
-                🧪 PRUEBA BÚSQUEDA
-              </Text>
-            </TouchableOpacity>
           </PremiumGlassCard>
         </Animated.View>
 
         {/* Content */}
-        <Animated.View style={[animatedContentStyle, styles.content]}>
+        <Animated.View entering={FadeInDown.delay(600)} style={styles.content}>
         <FlatList
             data={searchResults}
             keyExtractor={(item) => item.id}
@@ -357,12 +288,12 @@ export default function PremiumHomeScreen() {
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => handleDownload(item)}
-                    disabled={isDownloaded(item.id) || downloadingItems.includes(item.id)}
+                    disabled={isDownloaded(item.url) || Object.keys(downloadingItems).includes(item.id)}
                   >
                     <Icon
-                      name={isDownloaded(item.id) ? "check" : "download"}
+                      name={isDownloaded(item.url) ? "check" : "download"}
                       type="feather"
-                      color={isDownloaded(item.id) ? "#10b981" : "#8b5cf6"}
+                      color={isDownloaded(item.url) ? "#10b981" : "#8b5cf6"}
                       size={20}
                     />
                   </TouchableOpacity>
@@ -394,6 +325,11 @@ export default function PremiumHomeScreen() {
             }}
             contentContainerStyle={styles.listContainer}
           />
+        </Animated.View>
+
+        {/* Icono de nube grande en la parte inferior central */}
+        <Animated.View entering={FadeInDown.delay(1000)} style={styles.cloudIconContainer}>
+          <NetworkStatusIcon size="large" />
         </Animated.View>
       </LinearGradient>
     </View>
@@ -468,15 +404,18 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+  },
+  searchInputWrapper: {
+    flex: 1,
   },
   searchButton: {
-    marginLeft: 8,
+    marginLeft: 12,
   },
   searchButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -494,10 +433,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(139, 92, 246, 0.3)',
+    height: 50,
+    paddingHorizontal: 16,
   },
   searchInput: {
     color: '#fff',
     fontSize: 16,
+    height: 48,
   },
   content: {
     flex: 1,
@@ -598,5 +540,14 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  cloudIconContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
 });

@@ -81,7 +81,7 @@ interface PremiumButtonProps {
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'glass';
   size?: 'small' | 'medium' | 'large';
-  icon?: string;
+  icon?: string | React.ReactNode;
   disabled?: boolean;
   loading?: boolean;
 }
@@ -155,7 +155,15 @@ export const PremiumButton: React.FC<PremiumButtonProps> = ({
           style={styles.buttonGradient}
         >
           <View style={styles.buttonContent}>
-            {icon && <Icon name={icon} color="#fff" size={20} style={{ marginRight: 8 }} />}
+            {icon && (
+              typeof icon === 'string' ? (
+                <Icon name={icon} color="#fff" size={20} style={{ marginRight: 8 }} />
+              ) : (
+                <View style={{ marginRight: 8 }}>
+                  {icon}
+                </View>
+              )
+            )}
             <Text style={[styles.buttonText, { fontSize: size === 'small' ? 14 : size === 'large' ? 18 : 16 }]}>
               {title}
             </Text>

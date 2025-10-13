@@ -1,419 +1,315 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  Dimensions,
-  Image,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { router } from 'expo-router';
-import { ArrowLeft, Play, Headphones, BarChart3 } from 'lucide-react-native';
+import { Stack } from 'expo-router';
+import { ArrowLeft, Play, Headphones, Trophy, Star } from 'lucide-react-native';
 import { usePlayCount } from '@/contexts/PlayCountContext';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import { useDownloaderMusicPlayer } from '@/contexts/DownloaderMusicPlayerContext';
-
-const { width } = Dimensions.get('window');
+import { PremiumGlassCard } from '@/components/PremiumComponents';
+import { Icon } from '@rneui/themed';
 
 export default function MostPlayedScreen() {
-  const { getMostPlayed, playCounts } = usePlayCount();
-  const { playSong: playOnlineSong } = useMusicPlayer();
-  const { playSong: playDownloadedSong } = useDownloaderMusicPlayer();
-  const [mostPlayed, setMostPlayed] = useState<any[]>([]);
+  const { getMostPlayed, getTotalPlays, clearPlayCounts } = usePlayCount();
+  const { playSong: playOnlineSong, currentSong: currentOnlineSong, isPlaying: isOnlinePlaying } = useMusicPlayer();
+  const { playSong: playDownloadedSong, currentSong: currentDownloadedSong, isPlaying: isDownloadedPlaying } = useDownloaderMusicPlayer();
 
-  const headerOpacity = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    headerOpacity.value = withTiming(1, { duration: 600 });
-    contentOpacity.value = withTiming(1, { duration: 800 });
-  }, []);
-
-  useEffect(() => {
-    const topSongs = getMostPlayed(20);
-    setMostPlayed(topSongs);
-  }, [playCounts]);
-
-  const animatedHeaderStyle = useAnimatedStyle(() => ({
-    opacity: headerOpacity.value,
-    transform: [{ translateY: withSpring(headerOpacity.value * -20) }],
-  }));
-
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: withSpring(contentOpacity.value * 30) }],
-  }));
+  const mostPlayedSongs = getMostPlayed(20); // Top 20
+  const totalPlays = getTotalPlays();
 
   const handlePlaySong = async (song: any) => {
     try {
-      // Intentar reproducir como canción online primero
-      const onlineSong = {
-        id: song.id,
-        title: song.title,
-        artist: song.artist,
-        thumbnail: song.thumbnail,
-        url: song.url,
-        duration: 0,
-        view_count: 0,
-      };
+      console.log('🎵 Reproduciendo desde Más Escuchadas:', song.title);
+      
+      // Determinar si la canción es local o online
+      const isLocal = song.url && !song.url.startsWith('http');
 
-      if (song.url && song.url.startsWith('http')) {
-        await playOnlineSong(onlineSong, [onlineSong]);
-      } else {
-        // Si no tiene URL o es local, intentar como descarga
-        const downloadedSong = {
-          filename: `${song.title}.mp3`,
-          file_path: song.url || '',
+      if (isLocal) {
+        // Para canciones locales
+        const downloadedFile = {
+          filename: song.title + '.mp3',
+          file_path: song.url,
           file_size: 0,
-          created_at: Date.now() / 1000,
+          created_at: Date.now() / 1000
         };
-        await playDownloadedSong(downloadedSong, [downloadedSong]);
+        
+        if (currentDownloadedSong?.filename === downloadedFile.filename) {
+          if (isDownloadedPlaying) {
+            await playDownloadedSong(downloadedFile); // Pausar/Reanudar
+          } else {
+            await playDownloadedSong(downloadedFile);
+          }
+        } else {
+          await playDownloadedSong(downloadedFile, [downloadedFile]);
+        }
+      } else {
+        // Para canciones online
+        const onlineSong = {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          thumbnail_url: song.thumbnail,
+          audio_url: song.url,
+          created_at: new Date().toISOString(),
+          user_id: 'mock_user_id',
+          external_url: song.url,
+          duration: 0,
+          view_count: 0,
+        };
+        
+        if (currentOnlineSong?.id === onlineSong.id) {
+          if (isOnlinePlaying) {
+            await playOnlineSong(onlineSong); // Pausar/Reanudar
+          } else {
+            await playOnlineSong(onlineSong);
+          }
+        } else {
+          await playOnlineSong(onlineSong, [onlineSong]);
+        }
       }
     } catch (error) {
       console.error('Error reproduciendo canción:', error);
     }
   };
 
-  const renderSongItem = (song: any, index: number) => (
-    <Animated.View
-      key={song.id}
-      style={[
-        styles.songCard,
-        {
-          opacity: contentOpacity.value,
-          transform: [
-            {
-              translateY: withSpring(contentOpacity.value * (index * 10)),
-            },
-          ],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
-        style={styles.songCardGradient}
-      >
-        <BlurView intensity={20} style={styles.songCardBlur}>
-          <View style={styles.songInfo}>
-            <View style={styles.rankContainer}>
-              <LinearGradient
-                colors={
-                  index === 0
-                    ? ['#ffd700', '#ffed4e']
-                    : index === 1
-                    ? ['#c0c0c0', '#e5e5e5']
-                    : index === 2
-                    ? ['#cd7f32', '#daa520']
-                    : ['#8b5cf6', '#06b6d4']
-                }
-                style={styles.rankBadge}
-              >
-                <Text style={styles.rankText}>#{index + 1}</Text>
-              </LinearGradient>
-            </View>
+  const getMedalIcon = (index: number) => {
+    if (index === 0) return <Trophy size={20} color="#FFD700" />; // Gold
+    if (index === 1) return <Trophy size={20} color="#C0C0C0" />; // Silver
+    if (index === 2) return <Trophy size={20} color="#CD7F32" />; // Bronze
+    return null;
+  };
 
-            <View style={styles.songDetails}>
-              <Text style={styles.songTitle} numberOfLines={1}>
-                {song.title}
-              </Text>
-              <Text style={styles.songArtist} numberOfLines={1}>
-                {song.artist}
-              </Text>
-              <View style={styles.playCountContainer}>
-                <Headphones size={14} color="#8b5cf6" />
-                <Text style={styles.playCountText}>
-                  {song.playCount} reproducción{song.playCount !== 1 ? 'es' : ''}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={() => handlePlaySong(song)}
-            >
-              <LinearGradient
-                colors={['#8b5cf6', '#06b6d4']}
-                style={styles.playButtonGradient}
-              >
-                <Play size={20} color="#fff" fill="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </BlurView>
-      </LinearGradient>
-    </Animated.View>
-  );
-
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#1a1a2e', '#16213e']}
-        style={styles.backgroundGradient}
-      >
-        {/* Header */}
-        <Animated.View style={[styles.header, animatedHeaderStyle]}>
+  const renderSongItem = ({ item, index }: { item: any; index: number }) => (
+    <PremiumGlassCard style={styles.songCard}>
+      <View style={styles.songContent}>
+        <View style={styles.rankContainer}>
+          <Text style={styles.rankText}>{index + 1}.</Text>
+          {getMedalIcon(index)}
+        </View>
+        
+        <View style={styles.songInfo}>
+          <Text style={styles.songTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.songArtist} numberOfLines={1}>
+            {item.artist}
+          </Text>
+        </View>
+        
+        <View style={styles.songActions}>
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
+            style={styles.playButton}
+            onPress={() => handlePlaySong(item)}
           >
             <LinearGradient
               colors={['#8b5cf6', '#06b6d4']}
-              style={styles.backButtonGradient}
+              style={styles.playButtonGradient}
             >
-              <ArrowLeft size={24} color="#fff" />
+              <Play size={16} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
-
-          <View style={styles.headerContent}>
-            <LinearGradient
-              colors={['#8b5cf6', '#06b6d4']}
-              style={styles.headerIcon}
-            >
-              <BarChart3 size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.headerTitle}>Más Escuchadas</Text>
-            <Text style={styles.headerSubtitle}>
-              Tus canciones favoritas
-            </Text>
+          
+          <View style={styles.playCountContainer}>
+            <Headphones size={14} color="#06b6d4" />
+            <Text style={styles.playCountText}>{item.playCount}</Text>
           </View>
-        </Animated.View>
+        </View>
+      </View>
+    </PremiumGlassCard>
+  );
 
-        {/* Content */}
-        <ScrollView
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentContainer}
-        >
-          <Animated.View style={animatedContentStyle}>
-            {mostPlayed.length === 0 ? (
-              <View style={styles.emptyState}>
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
-                  style={styles.emptyCard}
-                >
-                  <BlurView intensity={20} style={styles.emptyBlur}>
-                    <Headphones size={48} color="#8b5cf6" />
-                    <Text style={styles.emptyTitle}>
-                      Aún no hay estadísticas
-                    </Text>
-                    <Text style={styles.emptySubtitle}>
-                      Reproduce algunas canciones para ver tu ranking personal
-                    </Text>
-                  </BlurView>
-                </LinearGradient>
-              </View>
-            ) : (
-              <>
-                <View style={styles.statsContainer}>
-                  <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
-                    style={styles.statsCard}
-                  >
-                    <BlurView intensity={20} style={styles.statsBlur}>
-                      <Text style={styles.statsTitle}>Estadísticas</Text>
-                      <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                          <Text style={styles.statNumber}>{playCounts.length}</Text>
-                          <Text style={styles.statLabel}>Canciones</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Text style={styles.statNumber}>
-                            {playCounts.reduce((sum, song) => sum + song.playCount, 0)}
-                          </Text>
-                          <Text style={styles.statLabel}>Reproducciones</Text>
-                        </View>
-                      </View>
-                    </BlurView>
-                  </LinearGradient>
-                </View>
-
-                <Text style={styles.sectionTitle}>Top Canciones</Text>
-                {mostPlayed.map((song, index) => renderSongItem(song, index))}
-              </>
-            )}
-          </Animated.View>
-        </ScrollView>
+  if (false) { // loading no está disponible en el contexto
+    return (
+      <LinearGradient colors={['#1a0033', '#000000']} style={styles.gradient}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8b5cf6" />
+          <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+        </View>
       </LinearGradient>
-    </View>
+    );
+  }
+
+  return (
+    <LinearGradient
+      colors={['#1a0033', '#000000', '#0a0a0a']}
+      style={styles.gradient}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => {}} style={styles.backButton}>
+            <ArrowLeft size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Más Escuchadas</Text>
+          <TouchableOpacity onPress={clearPlayCounts} style={styles.clearButton}>
+            <Icon name="trash-2" type="feather" color="#ef4444" size={20} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <PremiumGlassCard style={styles.statsCard}>
+            <View style={styles.statsRow}>
+              <Headphones size={24} color="#8b5cf6" />
+              <Text style={styles.statsText}>Total de reproducciones: {totalPlays}</Text>
+            </View>
+            <View style={styles.statsRow}>
+              <Star size={24} color="#f59e0b" />
+              <Text style={styles.statsText}>Canciones únicas: {mostPlayedSongs.length}</Text>
+            </View>
+          </PremiumGlassCard>
+        </View>
+
+        {mostPlayedSongs.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Headphones size={64} color="#8b5cf6" />
+            <Text style={styles.emptyTitle}>Aún no hay canciones en tu ranking</Text>
+            <Text style={styles.emptySubtitle}>¡Empieza a escuchar para ver tus favoritas aquí!</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={mostPlayedSongs}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSongItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    paddingTop: 50,
   },
-  backgroundGradient: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
     marginBottom: 20,
   },
   backButton: {
-    marginRight: 15,
-  },
-  backButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    padding: 5,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#8b5cf6',
-    fontWeight: '500',
+  clearButton: {
+    padding: 5,
   },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
+  statsContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    marginBottom: 20,
+  },
+  statsCard: {
+    padding: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statsText: {
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 10,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyCard: {
-    width: width - 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  emptyBlur: {
-    padding: 40,
-    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#fff',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#8b5cf6',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  statsContainer: {
-    marginBottom: 30,
-  },
-  statsCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  statsBlur: {
-    padding: 20,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
+    color: '#999',
+    marginTop: 8,
     textAlign: 'center',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8b5cf6',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#8b5cf6',
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
   },
   songCard: {
-    marginBottom: 12,
+    marginBottom: 15,
+    padding: 15,
   },
-  songCardGradient: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  songCardBlur: {
-    padding: 16,
-  },
-  songInfo: {
+  songContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   rankContainer: {
-    marginRight: 16,
-  },
-  rankBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 15,
+    width: 40,
   },
   rankText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
+    marginRight: 5,
   },
-  songDetails: {
+  songInfo: {
     flex: 1,
+    marginRight: 15,
   },
   songTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#fff',
     marginBottom: 4,
   },
   songArtist: {
     fontSize: 14,
-    color: '#8b5cf6',
-    marginBottom: 6,
+    color: '#999',
+  },
+  songActions: {
+    alignItems: 'center',
+  },
+  playButton: {
+    marginBottom: 8,
+  },
+  playButtonGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playCountContainer: {
     flexDirection: 'row',
@@ -421,18 +317,8 @@ const styles = StyleSheet.create({
   },
   playCountText: {
     fontSize: 12,
-    color: '#8b5cf6',
-    marginLeft: 6,
-    fontWeight: '500',
-  },
-  playButton: {
-    marginLeft: 12,
-  },
-  playButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    color: '#06b6d4',
+    marginLeft: 4,
+    fontWeight: '600',
   },
 });

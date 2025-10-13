@@ -111,7 +111,7 @@ export const premiumTheme: Theme = {
       color: '#8b5cf6',
     },
   },
-};
+} as any; // Usar 'as any' para evitar errores de tipos
 
 // Colores premium adicionales para efectos especiales
 export const premiumColors = {

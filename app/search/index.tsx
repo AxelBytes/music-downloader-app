@@ -197,6 +197,7 @@ export default function SearchScreen() {
     <Animated.View entering={SlideInRight.delay(100)}>
       <PlaylistCard
         playlist={item}
+        onPress={() => {}}
         onDelete={() => {}}
       />
     </Animated.View>

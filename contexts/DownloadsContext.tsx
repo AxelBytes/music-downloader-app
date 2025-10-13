@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from './AuthContext';
+import { usePremiumNotification } from './PremiumNotificationContext';
 
 interface DownloadedFile {
   filename: string;
@@ -40,6 +43,8 @@ const DownloadsContext = createContext<DownloadsContextType | undefined>(undefin
 const API_URL = 'https://web-production-b6008.up.railway.app';
 
 export function DownloadsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const { showNotification } = usePremiumNotification();
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([]);
   const [downloadingItems, setDownloadingItems] = useState<{ [key: string]: number }>({});
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -48,17 +53,48 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true); // Estado de conexión
 
   useEffect(() => {
-    loadDownloadedFiles();
-  }, []);
+    if (user) {
+      loadDownloadedFiles();
+    }
+  }, [user]);
 
   const loadDownloadedFiles = async () => {
+    if (!user) return;
+    
     try {
-      console.log('📥 Cargando archivos descargados...');
+      console.log('📥 Cargando archivos descargados para usuario:', user.id);
       
-      // Primero intentar cargar desde el backend
+      // Cargar desde Supabase (biblioteca del usuario)
+      try {
+        const { data: userLibrary, error } = await supabase
+          .from('user_libraries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error cargando biblioteca del usuario:', error);
+        } else if (userLibrary && userLibrary.length > 0) {
+          // Convertir datos de Supabase al formato esperado
+          const supabaseFiles = userLibrary.map((item: any) => ({
+            filename: item.song_data.filename,
+            file_path: item.song_data.file_path,
+            file_size: item.song_data.file_size,
+            created_at: new Date(item.created_at).getTime() / 1000,
+          }));
+          
+          setDownloadedFiles(supabaseFiles);
+          console.log(`✅ ${supabaseFiles.length} archivos cargados desde Supabase para usuario ${user.id}`);
+          return;
+        }
+      } catch (error) {
+        console.log('⚠️ Error cargando desde Supabase:', error);
+      }
+      
+      // Fallback: cargar desde el backend global
       try {
         const response = await fetch(`${API_URL}/downloads`, {
-          timeout: 5000,
+          // timeout: 5000, // No está disponible en RequestInit
         });
         
         if (response.ok) {
@@ -189,6 +225,16 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const downloadMusic = async (result: SearchResult) => {
+    if (!user) {
+      showNotification({
+        type: 'error',
+        title: 'Acceso Denegado',
+        message: 'Debes iniciar sesión para descargar música',
+        duration: 3000,
+      });
+      return;
+    }
+
     try {
       console.log('🔽 Iniciando descarga mejorada:', result.title);
       
@@ -225,6 +271,35 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
       if (data.status === 'success') {
         console.log('✅ Descarga completada:', data.file.title);
         
+        // Guardar en Supabase (biblioteca del usuario)
+        try {
+          const songData = {
+            filename: data.file.filename,
+            file_path: data.file.path,
+            file_size: data.file.file_size,
+            title: data.file.title,
+            artist: data.file.artist,
+            thumbnail: data.file.thumbnail || '',
+            url: result.url,
+            created_at: Date.now() / 1000
+          };
+
+          const { error: insertError } = await supabase
+            .from('user_libraries')
+            .insert({
+              user_id: user.id,
+              song_data: songData
+            });
+
+          if (insertError) {
+            console.error('Error guardando en Supabase:', insertError);
+          } else {
+            console.log('✅ Canción guardada en biblioteca del usuario');
+          }
+        } catch (error) {
+          console.error('Error guardando en Supabase:', error);
+        }
+        
         setDownloadingItems(prev => ({
           ...prev,
           [result.id]: 100
@@ -241,12 +316,13 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
           // Recargar archivos descargados
           loadDownloadedFiles();
           
-          // Mostrar mensaje de éxito
-          Alert.alert(
-            '🎵 ¡Éxito!', 
-            `Música descargada correctamente:\n\n"${data.file.title}"\npor ${data.file.artist}\n\nTamaño: ${formatFileSize(data.file.file_size)}`,
-            [{ text: '¡Genial!', style: 'default' }]
-          );
+          // Mostrar notificación premium de éxito
+          showNotification({
+            type: 'success',
+            title: '🎵 Descarga Completada',
+            message: `"${data.file.title}" por ${data.file.artist}\nTamaño: ${formatFileSize(data.file.file_size)}`,
+            duration: 4000,
+          });
         }, 1000);
         
       } else {
@@ -297,19 +373,54 @@ export function DownloadsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteFile = async (filename: string) => {
+    if (!user) {
+      Alert.alert('Error', 'Debes iniciar sesión para eliminar archivos');
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_URL}/download/${encodeURIComponent(filename)}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await loadDownloadedFiles();
-        Alert.alert('Éxito', 'Archivo eliminado correctamente');
-      } else {
-        Alert.alert('Error', 'No se pudo eliminar el archivo');
+      // Eliminar de Supabase (biblioteca del usuario)
+      const { error: deleteError } = await supabase
+        .from('user_libraries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('song_data->>filename', filename);
+
+      if (deleteError) {
+        console.error('Error eliminando de Supabase:', deleteError);
+        Alert.alert('Error', 'No se pudo eliminar el archivo de tu biblioteca');
+        return;
       }
+
+      // También intentar eliminar del backend si existe
+      try {
+        const response = await fetch(`${API_URL}/download/${encodeURIComponent(filename)}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          console.warn('No se pudo eliminar del backend, pero se eliminó de la biblioteca');
+        }
+      } catch (error) {
+        console.warn('Error eliminando del backend:', error);
+      }
+      
+      // Recargar archivos
+      await loadDownloadedFiles();
+      showNotification({
+        type: 'success',
+        title: 'Archivo Eliminado',
+        message: 'El archivo se ha eliminado correctamente de tu biblioteca',
+        duration: 3000,
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo eliminar el archivo');
+      console.error('Error eliminando archivo:', error);
+      showNotification({
+        type: 'error',
+        title: 'Error de Eliminación',
+        message: 'No se pudo eliminar el archivo de tu biblioteca',
+        duration: 3000,
+      });
     }
   };
 

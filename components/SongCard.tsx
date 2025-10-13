@@ -5,7 +5,17 @@ import { Database } from '@/lib/supabase';
 import { useMusicPlayer } from '@/contexts/MusicPlayerContext';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
-type Song = Database['public']['Tables']['songs']['Row'];
+// type Song = Database['public']['Tables']['songs']['Row']; // Tabla no existe
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  audio_url: string;
+  thumbnail_url: string;
+  cover_url?: string;
+  albumArt?: string;
+  duration?: number;
+};
 
 type SongCardProps = {
   song: Song;
@@ -50,7 +60,7 @@ export default function SongCard({ song, isFavorite, onToggleFavorite, onPlay }:
           </Text>
         </View>
 
-        <Text style={styles.duration}>{formatDuration(song.duration)}</Text>
+        <Text style={styles.duration}>{formatDuration(song.duration || 0)}</Text>
 
         <TouchableOpacity
           style={styles.iconButton}

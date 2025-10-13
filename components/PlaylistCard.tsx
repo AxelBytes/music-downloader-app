@@ -1,106 +1,176 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Music, Trash2, Heart } from 'lucide-react-native';
-import { Database } from '@/lib/supabase';
-import { router } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { Playlist } from '@/contexts/PlaylistContext';
 
-type Playlist = Database['public']['Tables']['playlists']['Row'];
-
-type PlaylistCardProps = {
+interface PlaylistCardProps {
   playlist: Playlist;
-  onDelete: (playlistId: string) => void;
-};
+  onPress: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
 
-export default function PlaylistCard({ playlist, onDelete }: PlaylistCardProps) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePress = () => {
-    scale.value = withSpring(0.95, {}, () => {
-      scale.value = withSpring(1);
-    });
-    router.push(`/playlist/${playlist.id}`);
+export default function PlaylistCard({ playlist, onPress, onEdit, onDelete }: PlaylistCardProps) {
+  const songCount = playlist.songs.length;
+  const duration = playlist.songs.reduce((total, song) => total + (song.duration || 0), 0);
+  
+  const formatDuration = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    }
+    return `${minutes}m`;
   };
 
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
-      <TouchableOpacity style={styles.content} onPress={handlePress} activeOpacity={0.7}>
-        <View style={[styles.icon, playlist.is_favorite_playlist && styles.favoriteIcon]}>
-          {playlist.is_favorite_playlist ? (
-            <Heart size={32} color="#ef4444" fill="#ef4444" />
-          ) : (
-            <Music size={32} color="#8b5cf6" />
-          )}
-        </View>
+    <TouchableOpacity onPress={onPress} style={styles.container}>
+      <BlurView intensity={20} style={styles.card}>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.1)', 'rgba(6, 182, 212, 0.1)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        >
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="musical-notes" color="#8b5cf6" size={24} />
+            </View>
+            <View style={styles.actions}>
+              {onEdit && (
+                <TouchableOpacity onPress={onEdit} style={styles.actionButton}>
+                  <Ionicons name="create" color="#06b6d4" size={16} />
+                </TouchableOpacity>
+              )}
+              {onDelete && (
+                <TouchableOpacity onPress={onDelete} style={styles.actionButton}>
+                  <Ionicons name="trash" color="#ef4444" size={16} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
-        <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>
-            {playlist.name}
-          </Text>
-          {playlist.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {playlist.description}
+          <View style={styles.content}>
+            <Text style={styles.name} numberOfLines={1}>
+              {playlist.name}
             </Text>
-          )}
-        </View>
+            
+            {playlist.description && (
+              <Text style={styles.description} numberOfLines={2}>
+                {playlist.description}
+              </Text>
+            )}
 
-        {!playlist.is_favorite_playlist && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => onDelete(playlist.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Trash2 size={20} color="#ef4444" />
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
+            <View style={styles.stats}>
+              <View style={styles.statItem}>
+                <Ionicons name="musical-notes" color="#999" size={14} />
+                <Text style={styles.statText}>
+                  {songCount} {songCount === 1 ? 'canción' : 'canciones'}
+                </Text>
+              </View>
+              
+              {duration > 0 && (
+                <View style={styles.statItem}>
+                  <Ionicons name="time" color="#999" size={14} />
+                  <Text style={styles.statText}>
+                    {formatDuration(duration)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.date}>
+              Creada {new Date(playlist.created_at).toLocaleDateString()}
+            </Text>
+          </View>
+        </LinearGradient>
+      </BlurView>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 15,
+  },
+  card: {
+    borderRadius: 16,
     overflow: 'hidden',
   },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+  gradient: {
+    padding: 20,
   },
-  icon: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(139, 92, 246, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  favoriteIcon: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  info: {
-    flex: 1,
-    marginRight: 12,
+  actionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    marginBottom: 15,
   },
   name: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   description: {
     fontSize: 14,
     color: '#999',
+    lineHeight: 20,
+    marginBottom: 12,
   },
-  deleteButton: {
-    padding: 8,
+  stats: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 12,
+  },
+  date: {
+    fontSize: 12,
+    color: '#666',
   },
 });

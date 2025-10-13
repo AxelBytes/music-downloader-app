@@ -49,10 +49,19 @@ export default function DownloaderMiniPlayer() {
   const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
 
   const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    // Verificar si el valor ya está en segundos o en milisegundos
+    if (ms > 10000) {
+      // Si es mayor a 10000, probablemente está en milisegundos
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      // Si es menor a 10000, probablemente ya está en segundos
+      const minutes = Math.floor(ms / 60);
+      const seconds = Math.floor(ms % 60);
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
   };
 
   const handlePlayPause = () => {

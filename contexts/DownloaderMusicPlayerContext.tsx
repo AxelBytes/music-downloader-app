@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Audio } from 'expo-av';
 import { Alert } from 'react-native';
 import { usePlayCount } from './PlayCountContext';
+import { useEqualizer } from './EqualizerContext';
+import { useRealEqualizer } from './RealEqualizerContext';
+import { useOffline } from './OfflineContext';
 
 interface DownloadedFile {
   filename: string;
@@ -35,11 +38,53 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
   const [duration, setDuration] = useState(0);
   const [queue, setQueueState] = useState<DownloadedFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const { incrementPlayCount } = usePlayCount();
+  const { applyAudioEffects, equalizerValues } = useEqualizer();
+  const { applyRealAudioEffects, isRealEqualizerAvailable } = useRealEqualizer();
+  const { isOfflineMode, isOnline } = useOffline();
 
   const API_URL = 'https://web-production-b6008.up.railway.app';
+
+  const updateProgress = async () => {
+    if (soundRef.current) {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isLoaded) {
+        setProgress(status.positionMillis / 1000);
+        setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
+      }
+    }
+  };
+
+  const startProgressUpdates = () => {
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+    }
+    progressInterval.current = setInterval(updateProgress, 1000) as any;
+  };
+
+  const stopProgressUpdates = () => {
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+      progressInterval.current = null;
+    }
+  };
+
+  // Aplicar efectos del ecualizador REAL cuando cambien los valores
+  useEffect(() => {
+    if (soundRef.current && isPlaying) {
+      // Aplicar ecualizador real si está disponible
+      if (isRealEqualizerAvailable) {
+        applyRealAudioEffects(soundRef.current);
+      } else {
+        // Fallback al ecualizador simulado
+        applyAudioEffects(soundRef.current);
+      }
+    }
+  }, [equalizerValues, isPlaying, isRealEqualizerAvailable]);
 
   const normalizeUrl = (url: string): string => {
     if (!url.match(/\.(mp3|mp4|wav|m4a|aac)$/i)) {
@@ -60,10 +105,38 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
 
   const playSong = async (song: DownloadedFile, newQueue?: DownloadedFile[]) => {
     try {
+      // PREVENIR REPRODUCCIÓN MÚLTIPLE
+      if (currentSong?.filename === song.filename && isPlaying) {
+        console.log('🎵 [DownloaderPlayer] Ya se está reproduciendo esta canción');
+        return;
+      }
+
+      if (isLoading) {
+        console.log('🎵 [DownloaderPlayer] Ya hay una reproducción en progreso');
+        return;
+      }
+
+      setIsLoading(true);
+      console.log('🎵 [DownloaderPlayer] Iniciando reproducción:', song.filename);
+      
+      // Verificar modo offline
+      if (isOfflineMode && !isOnline) {
+        console.log('📱 [OfflineMode] Reproduciendo en modo offline');
+        Alert.alert(
+          '📱 Modo Offline',
+          'Reproduciendo archivo local en modo offline',
+          [{ text: 'Entendido', style: 'default' }]
+        );
+      }
+
       await setupAudio();
 
+      // DETENER REPRODUCCIÓN ANTERIOR COMPLETAMENTE
       if (soundRef.current) {
+        console.log('🛑 [DownloaderPlayer] Deteniendo reproducción anterior');
         await soundRef.current.unloadAsync();
+        soundRef.current = null;
+        stopProgressUpdates();
       }
 
       // SOLUCIÓN HÍBRIDA: Funciona tanto en Expo Go como en builds nativos
@@ -71,13 +144,20 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
       
       if (!realAudioUri.startsWith('http')) {
         // Detectar si estamos en Expo Go (desarrollo) o build nativo
-        const isExpoGo = __DEV__ && realAudioUri.includes('C:\\'); // Windows path indica que es desarrollo
+        // Si la ruta contiene '/tmp/' o empieza con '/download/', es del backend
+        const isFromBackend = realAudioUri.includes('/tmp/') || realAudioUri.startsWith('/download/') || realAudioUri.includes('C:\\');
+        const isExpoGo = __DEV__; // En desarrollo siempre usar servidor backend
         
-        if (isExpoGo) {
-          // EN EXPO GO: Usar el servidor backend para servir el archivo
+        // EN MODO OFFLINE: Solo usar archivos locales
+        if (isOfflineMode && !isOnline) {
+          // EN MODO OFFLINE: Intentar usar archivo local
+          realAudioUri = `file://${encodeURI(realAudioUri)}`;
+          console.log('📱 [OFFLINE] Reproduciendo archivo LOCAL:', realAudioUri);
+        } else if (isFromBackend || isExpoGo) {
+          // EN EXPO GO O ARCHIVOS DEL BACKEND: Usar el servidor backend para servir el archivo
           const filename = song.filename;
           realAudioUri = `https://web-production-b6008.up.railway.app/file/${encodeURIComponent(filename)}`;
-          console.log('🎵 [EXPO GO] Reproduciendo vía servidor:', realAudioUri);
+          console.log('🎵 [BACKEND] Reproduciendo vía servidor:', realAudioUri);
         } else {
           // EN BUILD NATIVO: Usar ruta local directa
           realAudioUri = `file://${encodeURI(realAudioUri)}`;
@@ -111,6 +191,7 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
       soundRef.current = sound;
       setCurrentSong(song);
       setIsPlaying(true);
+      startProgressUpdates();
 
       // Incrementar conteo de reproducciones
       const title = song.filename.replace(/\.(mp3|m4a|webm)$/i, '');
@@ -131,6 +212,8 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
       console.error('Error playing song:', error);
       Alert.alert('Error', `No se puede reproducir el archivo: ${error.message}`);
       setIsPlaying(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -138,6 +221,7 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
     if (soundRef.current) {
       await soundRef.current.pauseAsync();
       setIsPlaying(false);
+      stopProgressUpdates();
     }
   };
 
@@ -145,6 +229,7 @@ export function DownloaderMusicPlayerProvider({ children }: { children: React.Re
     if (soundRef.current) {
       await soundRef.current.playAsync();
       setIsPlaying(true);
+      startProgressUpdates();
     }
   };
 

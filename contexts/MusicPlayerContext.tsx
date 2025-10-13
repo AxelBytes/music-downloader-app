@@ -1,9 +1,21 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Audio } from 'expo-av';
 import { Database } from '@/lib/supabase';
 import { usePlayCount } from './PlayCountContext';
+import { useEqualizer } from './EqualizerContext';
+import { useRealEqualizer } from './RealEqualizerContext';
 
-type Song = Database['public']['Tables']['songs']['Row'];
+// type Song = Database['public']['Tables']['songs']['Row']; // Tabla no existe
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  audio_url: string;
+  thumbnail_url: string;
+  cover_url?: string;
+  albumArt?: string;
+  duration?: number;
+};
 
 type MusicPlayerContextType = {
   currentSong: Song | null;
@@ -30,10 +42,13 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   const [duration, setDuration] = useState(0);
   const [queue, setQueueState] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const { incrementPlayCount } = usePlayCount();
+  const { applyAudioEffects, equalizerValues } = useEqualizer();
+  const { applyRealAudioEffects, isRealEqualizerAvailable } = useRealEqualizer();
 
   const setupAudio = async () => {
     await Audio.setAudioModeAsync({
@@ -42,6 +57,19 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       shouldDuckAndroid: true,
     });
   };
+
+  // Aplicar efectos del ecualizador REAL cuando cambien los valores
+  useEffect(() => {
+    if (soundRef.current && isPlaying) {
+      // Aplicar ecualizador real si está disponible
+      if (isRealEqualizerAvailable) {
+        applyRealAudioEffects(soundRef.current);
+      } else {
+        // Fallback al ecualizador simulado
+        applyAudioEffects(soundRef.current);
+      }
+    }
+  }, [equalizerValues, isPlaying, isRealEqualizerAvailable]);
 
   const updateProgress = async () => {
     if (soundRef.current) {
@@ -57,7 +85,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     if (progressInterval.current) {
       clearInterval(progressInterval.current);
     }
-    progressInterval.current = setInterval(updateProgress, 1000);
+    progressInterval.current = setInterval(updateProgress, 1000) as any;
   };
 
   const stopProgressUpdates = () => {
@@ -69,10 +97,26 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
   const playSong = async (song: Song, newQueue?: Song[]) => {
     try {
+      // PREVENIR REPRODUCCIÓN MÚLTIPLE
+      if (currentSong?.id === song.id && isPlaying) {
+        console.log('🎵 [MusicPlayer] Ya se está reproduciendo esta canción');
+        return;
+      }
+
+      if (isLoading) {
+        console.log('🎵 [MusicPlayer] Ya hay una reproducción en progreso');
+        return;
+      }
+
+      setIsLoading(true);
+      console.log('🎵 [MusicPlayer] Iniciando reproducción:', song.title);
       await setupAudio();
 
+      // DETENER REPRODUCCIÓN ANTERIOR COMPLETAMENTE
       if (soundRef.current) {
+        console.log('🛑 [MusicPlayer] Deteniendo reproducción anterior');
         await soundRef.current.unloadAsync();
+        soundRef.current = null;
         stopProgressUpdates();
       }
 
@@ -103,6 +147,8 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       }
     } catch (error) {
       console.error('Error playing song:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 

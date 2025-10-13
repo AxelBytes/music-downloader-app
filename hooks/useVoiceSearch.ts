@@ -45,7 +45,7 @@ export function useVoiceSearch() {
       // - expo-speech para Expo
       // - Web Speech API para web
       
-      if (Platform.OS === 'web') {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
         // Implementación para web usando Web Speech API
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
           const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;

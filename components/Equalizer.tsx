@@ -9,8 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Music2, Sliders } from 'lucide-react-native';
-// import Slider from 'react-native-slider'; // Temporalmente comentado por error
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEqualizer } from '@/contexts/EqualizerContext';
 
 interface EqualizerBand {
   frequency: string;
@@ -24,56 +23,16 @@ interface EqualizerPreset {
 }
 
 const PRESETS: EqualizerPreset[] = [
-  {
-    name: 'Flat',
-    icon: '🎵',
-    values: [0, 0, 0, 0, 0],
-  },
-  {
-    name: 'Rock',
-    icon: '🎸',
-    values: [5, 3, -2, 2, 6],
-  },
-  {
-    name: 'Pop',
-    icon: '🎤',
-    values: [2, 4, 4, 3, 1],
-  },
-  {
-    name: 'Reggaeton',
-    icon: '🔥',
-    values: [8, 6, 2, 1, 3],
-  },
-  {
-    name: 'RKT',
-    icon: '💥',
-    values: [9, 7, 3, 2, 4],
-  },
-  {
-    name: 'Electrónica',
-    icon: '⚡',
-    values: [6, 4, 0, 3, 7],
-  },
-  {
-    name: 'Jazz',
-    icon: '🎷',
-    values: [3, 2, 0, 2, 4],
-  },
-  {
-    name: 'Clásica',
-    icon: '🎻',
-    values: [4, 2, -1, 3, 5],
-  },
-  {
-    name: 'Hip Hop',
-    icon: '🎧',
-    values: [7, 5, 1, 0, 2],
-  },
-  {
-    name: 'Bajos Extremos',
-    icon: '💣',
-    values: [10, 8, 3, 1, 0],
-  },
+  { name: 'Flat', icon: '🎵', values: [0, 0, 0, 0, 0] },
+  { name: 'Rock', icon: '🎸', values: [5, 3, -2, 2, 6] },
+  { name: 'Pop', icon: '🎤', values: [2, 4, 4, 3, 1] },
+  { name: 'Reggaeton', icon: '🔥', values: [8, 6, 2, 1, 3] },
+  { name: 'RKT', icon: '💥', values: [9, 7, 3, 2, 4] },
+  { name: 'Electrónica', icon: '⚡', values: [6, 4, 0, 3, 7] },
+  { name: 'Jazz', icon: '🎷', values: [3, 2, 0, 2, 4] },
+  { name: 'Clásica', icon: '🎻', values: [4, 2, -1, 3, 5] },
+  { name: 'Hip Hop', icon: '🎧', values: [7, 5, 1, 0, 2] },
+  { name: 'Bajos Extremos', icon: '💣', values: [10, 8, 3, 1, 0] },
 ];
 
 const FREQUENCY_BANDS = ['60Hz', '230Hz', '910Hz', '4kHz', '14kHz'];
@@ -82,65 +41,28 @@ const FREQUENCY_LABELS = ['Graves', 'Medios-Bajos', 'Medios', 'Medios-Altos', 'A
 interface EqualizerProps {
   visible: boolean;
   onClose: () => void;
-  onEqualizerChange?: (values: number[]) => void;
 }
 
-export default function Equalizer({ visible, onClose, onEqualizerChange }: EqualizerProps) {
-  const [selectedPreset, setSelectedPreset] = useState('Flat');
-  const [equalizerValues, setEqualizerValues] = useState<number[]>([0, 0, 0, 0, 0]);
-  const [isCustom, setIsCustom] = useState(false);
-
-  useEffect(() => {
-    loadSavedEqualizer();
-  }, []);
-
-  const loadSavedEqualizer = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('equalizer_settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        setEqualizerValues(settings.values);
-        setSelectedPreset(settings.preset);
-        setIsCustom(settings.isCustom);
-      }
-    } catch (error) {
-      console.error('Error cargando ecualizador:', error);
-    }
-  };
-
-  const saveEqualizerSettings = async (preset: string, values: number[], custom: boolean) => {
-    try {
-      await AsyncStorage.setItem('equalizer_settings', JSON.stringify({
-        preset,
-        values,
-        isCustom: custom,
-      }));
-    } catch (error) {
-      console.error('Error guardando ecualizador:', error);
-    }
-  };
+export default function Equalizer({ visible, onClose }: EqualizerProps) {
+  const {
+    equalizerValues,
+    selectedPreset,
+    isCustom,
+    applyPreset,
+    resetEqualizer,
+    setEqualizerValues,
+  } = useEqualizer();
 
   const handlePresetSelect = (preset: EqualizerPreset) => {
-    setSelectedPreset(preset.name);
-    setEqualizerValues(preset.values);
-    setIsCustom(false);
-    saveEqualizerSettings(preset.name, preset.values, false);
-    onEqualizerChange?.(preset.values);
+    console.log('🎵 [Equalizer] Aplicando preset:', preset.name);
+    applyPreset(preset.name, preset.values);
   };
 
   const handleBandChange = (index: number, value: number) => {
+    console.log('🎛️ [Equalizer] Cambiando banda', index, 'a', value);
     const newValues = [...equalizerValues];
     newValues[index] = value;
     setEqualizerValues(newValues);
-    setIsCustom(true);
-    setSelectedPreset('Personalizado');
-    saveEqualizerSettings('Personalizado', newValues, true);
-    onEqualizerChange?.(newValues);
-  };
-
-  const resetEqualizer = () => {
-    const flatPreset = PRESETS[0];
-    handlePresetSelect(flatPreset);
   };
 
   return (

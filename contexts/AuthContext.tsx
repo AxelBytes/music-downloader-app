@@ -1,120 +1,265 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-// import { Session, User } from '@supabase/supabase-js'; // Temporalmente comentado
-// import { supabase } from '@/lib/supabase'; // Temporalmente comentado
-
-// Tipos temporales
-type User = {
-  id: string;
-  email: string;
-  user_metadata?: { display_name?: string };
-};
-
-type Session = {
-  user: User;
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  expires_at: number;
-  token_type: string;
-};
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import { ActivationKeyManager } from '@/lib/activationKeys';
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, username: string, activationKey: string) => Promise<{ error: any }>;
+  signIn: (activationKey: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  validateActivationKey: (key: string) => Promise<{ isValid: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Usuario simulado para desarrollo (sin login)
-  const mockUser: User = {
-    id: 'dev-user-123',
-    email: 'developer@example.com',
-    user_metadata: { display_name: 'Developer' }
-  };
-  
-  const mockSession: Session = {
-    user: mockUser,
-    access_token: 'mock-token',
-    refresh_token: 'mock-refresh',
-    expires_in: 3600,
-    expires_at: Date.now() / 1000 + 3600,
-    token_type: 'bearer'
-  };
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState<User | null>(mockUser);
-  const [session, setSession] = useState<Session | null>(mockSession);
-  const [loading, setLoading] = useState(false); // No loading
-
-  // Comentado temporalmente para desarrollo sin login
-  /*
+  // CARGAR USUARIO AL INICIAR
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const loadUser = async () => {
+      try {
+        console.log('🔐 [AuthContext] Cargando sesión existente...');
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('🔐 [AuthContext] Error cargando sesión:', error);
+        } else if (session) {
+          console.log('🔐 [AuthContext] Sesión encontrada:', session.user.email);
+          setUser(session.user);
+          setSession(session);
+        } else {
+          console.log('🔐 [AuthContext] No hay sesión activa');
+        }
+      } catch (error) {
+        console.error('🔐 [AuthContext] Error en loadUser:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    loadUser();
   }, []);
-  */
 
-  // Funciones de autenticación comentadas temporalmente
-  const signUp = async (email: string, password: string, displayName: string) => {
-    // Simular éxito para desarrollo
-    return { error: null };
-    /*
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  // useEffect(() => {
+    // Limpiar cualquier sesión existente y forzar registro
+    /* const clearExistingSessions = async () => {
+      try {
+        console.log('🔐 [AuthContext] Iniciando limpieza de sesiones...');
+        
+        // FORZAR estado sin usuario INMEDIATAMENTE
+        setUser(null);
+        setSession(null);
+        
+        // Limpiar sesiones de Supabase
+        await supabase.auth.signOut();
+        
+        // Limpiar localStorage/sessionStorage si existe (web)
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('sb-kejulhhnjbtrwrgnxdww-auth-token');
+            sessionStorage.clear();
+          } catch (e) {
+            // Ignorar errores de storage
+          }
+        }
+        
+        // Limpiar AsyncStorage en React Native - MÁS AGRESIVO
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          if (AsyncStorage) {
+            // Limpiar TODAS las keys relacionadas con Supabase
+            const keys = await AsyncStorage.getAllKeys();
+            const supabaseKeys = keys.filter(key => 
+              key.includes('supabase') || 
+              key.includes('sb-') ||
+              key.includes('auth-token') ||
+              key.includes('session')
+            );
+            
+            if (supabaseKeys.length > 0) {
+              await AsyncStorage.multiRemove(supabaseKeys);
+              console.log('🔐 [AuthContext] AsyncStorage limpiado:', supabaseKeys);
+            }
+            
+            // También limpiar keys específicas por si acaso
+            await AsyncStorage.multiRemove([
+              'sb-kejulhhnjbtrwrgnxdww-auth-token',
+              '@supabase/auth-token',
+              'supabase.auth.token',
+              'supabase.auth.session'
+            ]);
+          }
+        } catch (e) {
+          console.warn('Error limpiando AsyncStorage:', e);
+        }
+        
+        console.log('🔐 [AuthContext] Sesiones limpiadas - Forzando registro');
+        
+        // Pequeño delay para asegurar que la limpieza se complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.warn('Error clearing sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (error || !data.user) {
-      return { error };
+    clearExistingSessions();
+
+    // No escuchar cambios de autenticación automáticos
+    // Solo manejar cambios manuales
+  }, []); */
+
+  const validateActivationKey = async (key: string): Promise<{ isValid: boolean; error?: string }> => {
+    try {
+      console.log('🔐 [AuthContext] ===== VALIDANDO KEY EN AUTHCONTEXT =====');
+      console.log('🔐 [AuthContext] Key recibida:', key);
+      
+      // ALERT TEMPORAL PARA DEBUG
+      const { Alert } = require('react-native');
+      Alert.alert('🔍 DEBUG', `Validando clave: ${key}`);
+      
+      const result = await ActivationKeyManager.validateKey(key);
+      console.log('🔐 [AuthContext] Resultado de ActivationKeyManager:', result);
+      
+      // ALERT CON RESULTADO
+      Alert.alert('🔍 RESULTADO', `Válida: ${result.isValid}\nError: ${result.error || 'Ninguno'}`);
+      
+      return { isValid: result.isValid, error: result.error };
+    } catch (error) {
+      console.error('🔐 [AuthContext] Error en validateActivationKey:', error);
+      
+      // ALERT CON ERROR
+      const { Alert } = require('react-native');
+      Alert.alert('🔍 ERROR', `Error: ${(error as Error).message}`);
+      
+      return { isValid: false, error: 'Error al validar la key' };
     }
+  };
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        email: data.user.email!,
-        display_name: displayName,
+  const signUp = async (email: string, password: string, username: string, activationKey: string) => {
+    try {
+      // Validar key de activación
+      const keyValidation = await validateActivationKey(activationKey);
+      if (!keyValidation.isValid) {
+        return { error: { message: keyValidation.error } };
+      }
+
+      // Crear usuario en Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       });
 
-    return { error: profileError };
-    */
+      if (error || !data.user) {
+        return { error };
+      }
+
+      // Crear usuario en nuestra tabla personalizada
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user.id,
+          email: data.user.email!,
+          username,
+          activation_key: activationKey,
+        });
+
+      if (userError) {
+        return { error: userError };
+      }
+
+      // Marcar key como usada
+      const keyMarked = await ActivationKeyManager.markKeyAsUsed(activationKey, data.user.id);
+      if (!keyMarked) {
+        console.warn('Error al marcar key como usada');
+      }
+
+      // Crear sesión para el nuevo usuario
+      const mockSession: Session = {
+        user: {
+          id: data.user.id,
+          email: data.user.email!,
+          user_metadata: { display_name: username },
+          app_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date().toISOString()
+        } as User,
+        access_token: 'mock-token-' + data.user.id,
+        refresh_token: 'mock-refresh-' + data.user.id,
+        expires_in: 3600,
+        expires_at: Date.now() / 1000 + 3600,
+        token_type: 'bearer'
+      };
+
+      setSession(mockSession);
+      setUser(mockSession.user);
+
+      console.log('✅ [AuthContext] Usuario registrado:', username);
+      return { error: null };
+    } catch (error) {
+      return { error: { message: 'Error inesperado al crear cuenta' } };
+    }
   };
 
-  const signIn = async (email: string, password: string) => {
-    // Simular éxito para desarrollo
-    return { error: null };
-    /*
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
-    */
+  const signIn = async (activationKey: string) => {
+    try {
+      // Buscar usuario por key de activación
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('activation_key', activationKey)
+        .single();
+
+      if (userError || !userData) {
+        return { error: { message: 'Key de activación inválida' } };
+      }
+
+      // Crear sesión simulada para el usuario
+      const mockSession: Session = {
+        user: {
+          id: userData.id,
+          email: userData.email,
+          user_metadata: { display_name: userData.username },
+          app_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date().toISOString()
+        } as User,
+        access_token: 'mock-token-' + userData.id,
+        refresh_token: 'mock-refresh-' + userData.id,
+        expires_in: 3600,
+        expires_at: Date.now() / 1000 + 3600,
+        token_type: 'bearer'
+      };
+
+      setSession(mockSession);
+      setUser(mockSession.user);
+
+      console.log('✅ [AuthContext] Usuario logueado:', userData.username);
+      return { error: null };
+    } catch (error) {
+      return { error: { message: 'Error al iniciar sesión' } };
+    }
   };
 
   const signOut = async () => {
-    // Simular logout para desarrollo
+    console.log('🔐 [AuthContext] Cerrando sesión');
     setUser(null);
     setSession(null);
-    /*
-    await supabase.auth.signOut();
-    */
+    
+    // También limpiar sesión de Supabase si existe
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Error signing out from Supabase:', error);
+    }
   };
 
   const value = {
@@ -124,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signOut,
+    validateActivationKey,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -21,6 +21,7 @@ interface PlayCountContextType {
     url?: string;
   }) => void;
   getMostPlayed: (limit?: number) => PlayCount[];
+  getTotalPlays: () => number;
   clearPlayCounts: () => void;
 }
 
@@ -106,6 +107,10 @@ export function PlayCountProvider({ children }: { children: React.ReactNode }) {
       .slice(0, limit);
   };
 
+  const getTotalPlays = (): number => {
+    return playCounts.reduce((total, song) => total + song.playCount, 0);
+  };
+
   const clearPlayCounts = async () => {
     setPlayCounts([]);
     try {
@@ -122,6 +127,7 @@ export function PlayCountProvider({ children }: { children: React.ReactNode }) {
         playCounts,
         incrementPlayCount,
         getMostPlayed,
+        getTotalPlays,
         clearPlayCounts
       }}
     >

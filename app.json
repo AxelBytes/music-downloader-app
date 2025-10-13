@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "Music Player Pro",
-    "slug": "music-player-pro",
+    "name": "Groovify",
+    "slug": "groovify-music-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/images/512x512.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -25,11 +26,31 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b31cfd74-c77a-46cd-9589-ff8b9f190649"
+        "projectId": "fc49fd84-f17c-461b-8fdb-70360a290f2b"
       }
     },
     "android": {
-      "package": "com.lionel.fullstack.musicplayerpro"
-    }
+      "package": "com.adamslionel45.groovify",
+      "versionCode": 1,
+      "icon": "./assets/images/512x512.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/1024x1024.png",
+        "backgroundColor": "#1a0033"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.ACCESS_NOTIFICATION_POLICY",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+        "android.permission.USE_FULL_SCREEN_INTENT"
+      ]
+    },
+    "owner": "lionelaxel"
   }
 }

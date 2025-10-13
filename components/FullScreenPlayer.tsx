@@ -25,6 +25,7 @@ import {
 } from 'lucide-react-native';
 // import Slider from 'react-native-slider'; // Temporalmente comentado por error
 import Equalizer from './Equalizer';
+import RealEqualizer from './RealEqualizer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -61,6 +62,7 @@ export default function FullScreenPlayer({
   const [repeat, setRepeat] = useState(false);
   const [slideAnimation] = useState(new Animated.Value(height));
   const [equalizerVisible, setEqualizerVisible] = useState(false);
+  const [realEqualizerVisible, setRealEqualizerVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -210,9 +212,9 @@ export default function FullScreenPlayer({
           <View style={styles.bottomActions}>
             <TouchableOpacity 
               style={styles.bottomButton}
-              onPress={() => setEqualizerVisible(true)}
+              onPress={() => setRealEqualizerVisible(true)}
             >
-              <Sliders size={24} color="#8b5cf6" />
+              <Sliders size={24} color="#10b981" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.bottomButton}>
               <ListMusic size={24} color="#fff" />
@@ -225,10 +227,12 @@ export default function FullScreenPlayer({
       <Equalizer
         visible={equalizerVisible}
         onClose={() => setEqualizerVisible(false)}
-        onEqualizerChange={(values) => {
-          console.log('📊 Ecualizador cambiado:', values);
-          // Aquí puedes aplicar los valores del ecualizador al audio
-        }}
+      />
+      
+      {/* Real Equalizer Modal */}
+      <RealEqualizer
+        visible={realEqualizerVisible}
+        onClose={() => setRealEqualizerVisible(false)}
       />
     </Modal>
   );
