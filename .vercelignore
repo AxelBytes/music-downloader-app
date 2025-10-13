@@ -1,0 +1,4 @@
+# No ignorar nada, Vercel necesita ver todo
+node_modules
+.git
+*.log
