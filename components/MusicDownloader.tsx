@@ -74,7 +74,7 @@ export default function PremiumMusicDownloader() {
   const { playSong, pauseSong, resumeSong, isPlaying: playerIsPlaying, currentSong: playerCurrentSong } = useDownloaderMusicPlayer();
   const { id } = useLocalSearchParams();
 
-  const API_URL = 'https://web-production-b6008.up.railway.app';
+  const API_URL = 'https://music-downloader-app-kappa.vercel.app';
 
   useEffect(() => {
     loadDownloadedFiles();
