@@ -352,13 +352,13 @@ async def download_premium_mp3(url: str, quality: str):
         'fragment_retries': 25,  # Reintentos de fragmentos
         'skip_unavailable_fragments': True,  # Saltar fragmentos no disponibles
         
-        # 💣💣💣 ESTRATEGIA DE ENGAÑO ANTI-RATAS 💣💣💣
-        # 🔥🔥🔥 HEADERS QUE ENGAÑAN A YOUTUBE 🔥🔥🔥
+        # 💣💣💣 ESTRATEGIA DE DISPERSIÓN ANTI-RATAS 💣💣💣
+        # 🔥🔥🔥 HEADERS QUE DISPERSAN A YOUTUBE 🔥🔥🔥
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
@@ -368,7 +368,7 @@ async def download_premium_mp3(url: str, quality: str):
             'Cache-Control': 'max-age=0',
             'DNT': '1',
             'Sec-GPC': '1',
-            'Viewport-Width': '375',
+            'Viewport-Width': '1920',
             'X-Forwarded-For': '192.168.1.100',
             'X-Real-IP': '192.168.1.100',
             'CF-Connecting-IP': '192.168.1.100',
@@ -469,6 +469,8 @@ async def download_premium_mp3(url: str, quality: str):
         ("FALLBACK MP3 256kbps", {**ydl_opts, 'format': 'bestaudio[ext=m4a]/bestaudio/best'}),
         ("EMERGENCY MP3 128kbps", {**ydl_opts, 'format': 'worstaudio/worst'}),
         ("ULTRA PERSISTENT MP3", {**ydl_opts, 'socket_timeout': 600, 'retries': 20, 'fragment_retries': 20}),
+        ("MAC DISPERSION MP3", {**ydl_opts, 'http_chunk_size': 2097152, 'sleep_interval': 0.1, 'max_sleep_interval': 0.3}),
+        ("MICRO CHUNKS MP3", {**ydl_opts, 'http_chunk_size': 524288, 'sleep_interval': 0.02, 'max_sleep_interval': 0.1}),
     ]
     
     for strategy_name, strategy_opts in strategies:
