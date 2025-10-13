@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Groovify",
+    "slug": "groovify-music-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/512x512.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fc49fd84-f17c-461b-8fdb-70360a290f2b"
+      }
+    },
+    "android": {
+      "package": "com.adamslionel45.groovify",
+      "icon": "./assets/images/512x512.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/1024x1024.png",
+        "backgroundColor": "#1a0033"
+      }
+    }
+  }
+}
