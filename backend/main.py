@@ -259,16 +259,16 @@ async def search_music(query: str):
         for entry in search_results['entries']:
             if entry and isinstance(entry, dict):  # Verificar que entry no sea None y sea un diccionario
                 try:
-                result = SearchResult(entry)
-                results.append({
-                    'id': result.id,
-                    'title': result.title,
-                    'artist': result.uploader,
-                    'duration': result.duration,
-                    'thumbnail': result.thumbnail,
-                    'url': result.url,
-                    'view_count': result.view_count
-                })
+                    result = SearchResult(entry)
+                    results.append({
+                        'id': result.id,
+                        'title': result.title,
+                        'artist': result.uploader,
+                        'duration': result.duration,
+                        'thumbnail': result.thumbnail,
+                        'url': result.url,
+                        'view_count': result.view_count
+                    })
                 except Exception as entry_error:
                     print(f"⚠️ Error procesando entrada: {entry_error}")
                     continue  # Continuar con la siguiente entrada
