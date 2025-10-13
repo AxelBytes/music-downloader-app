@@ -245,23 +245,33 @@ async def search_music(query: str):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             search_results = ydl.extract_info(search_query, download=False)
             
+        # VERIFICAR QUE SEARCH_RESULTS NO SEA NONE
+        if search_results is None:
+            print(f"❌ Error: búsqueda retornó None para query: {query}")
+            return {"status": "success", "results": []}
+            
         if not search_results or 'entries' not in search_results:
+            print(f"⚠️ No se encontraron resultados para: {query}")
             return {"status": "success", "results": []}
         
         # Procesar resultados
         results = []
         for entry in search_results['entries']:
-            if entry:  # Verificar que entry no sea None
-                result = SearchResult(entry)
-                results.append({
-                    'id': result.id,
-                    'title': result.title,
-                    'artist': result.uploader,
+            if entry and isinstance(entry, dict):  # Verificar que entry no sea None y sea un diccionario
+                try:
+                    result = SearchResult(entry)
+                    results.append({
+                        'id': result.id,
+                        'title': result.title,
+                        'artist': result.uploader,
                     'duration': result.duration,
                     'thumbnail': result.thumbnail,
                     'url': result.url,
                     'view_count': result.view_count
                 })
+                except Exception as entry_error:
+                    print(f"⚠️ Error procesando entrada: {entry_error}")
+                    continue  # Continuar con la siguiente entrada
         
         return {
             "status": "success",
@@ -276,95 +286,228 @@ async def search_music(query: str):
 @app.post("/download")
 async def download_audio(url: str, quality: str = "best"):
     """
-    Descargar audio de una URL (versión simplificada para pruebas)
+    🔥 BACKEND PREMIUM - Solo MP3 máxima calidad (320kbps)
+    """
+    print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad: {url}")
+    
+    if not url:
+        raise HTTPException(400, "URL es requerida")
+    
+    # 🎯 SOLO ESTRATEGIA PREMIUM - MP3 320kbps
+    try:
+        print(f"🔥 [PREMIUM] Descargando MP3 de máxima calidad...")
+        result = await download_premium_mp3(url, quality)
+        print(f"✅ [PREMIUM] ¡Descarga MP3 exitosa!")
+        return result
+    except Exception as e:
+        print(f"❌ [PREMIUM] Error en descarga MP3: {str(e)}")
+        raise HTTPException(500, f"Error en descarga premium: {str(e)}")
+
+async def download_premium_mp3(url: str, quality: str):
+    """
+    🔥 PREMIUM: Solo MP3 de máxima calidad (320kbps)
+    """
+    print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad (320kbps)")
+    
+    # CONFIGURACIÓN PREMIUM ULTRA-OPTIMIZADA
+    ydl_opts = {
+        # FORMATO PREMIUM - Solo los mejores formatos de audio
+        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+        'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
+        'writethumbnail': False,
+        'writeinfojson': False,
+        'quiet': False,
+        'no_warnings': False,
+        
+        # CONVERSIÓN A MP3 PREMIUM
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '320',  # MÁXIMA CALIDAD MP3
+        }],
+        
+        # FFMPEG OPTIMIZADO
+        'ffmpeg_location': 'C:\\ffmpeg\\bin',
+        
+        # BYPASS AGRESIVO PARA CALIDAD PREMIUM
+        'age_limit': 0,
+        'no_check_certificate': True,
+        'ignoreerrors': True,
+        'extract_flat': False,
+        'writedescription': False,
+        'writecomments': False,
+        'writeautomaticsub': False,
+        'writesubtitles': False,
+        
+        # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
+        'socket_timeout': 90,  # Timeout largo para calidad premium
+        'retries': 5,  # Múltiples reintentos
+        'fragment_retries': 5,  # Reintentos de fragmentos
+        'http_chunk_size': 20971520,  # 20MB chunks para descarga rápida
+        'sleep_interval': 1,
+        'max_sleep_interval': 5,
+        
+        # HEADERS PREMIUM PERSONALIZADOS PARA BYPASS YOUTUBE
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        },
+        # BYPASS AGRESIVO PARA YOUTUBE
+        'extractor_args': {
+            'youtube': {
+                'skip': ['dash', 'hls'],
+                'player_skip': ['configs'],
+                'max_comments': [0],
+            }
+        },
+        # CONFIGURACIÓN ANTI-BOT
+        'sleep_interval': 2,
+        'max_sleep_interval': 5,
+        'sleep_interval_requests': 1,
+    }
+    
+    return await execute_premium_download(url, ydl_opts, "PREMIUM MP3 320kbps")
+
+async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str):
+    """
+    🔥 PREMIUM: Ejecutar descarga MP3 de máxima calidad
     """
     try:
-        print(f"🔽 Descarga solicitada: {url}")
-        
-        if not url:
-            raise HTTPException(400, "URL es requerida")
-        
-        # DESCARGAR MÚSICA REAL CON YT-DLP
-        print(f"🔽 Descargando música real desde: {url}")
-        
-        # Configurar yt-dlp para descarga real CON conversión a MP3
-        ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio/best',
-            'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
-            'writethumbnail': False,
-            'writeinfojson': False,
-            'quiet': False,
-            'no_warnings': False,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'ffmpeg_location': 'C:\\ffmpeg\\bin',  # Ruta específica a FFmpeg
-            # Bypass restricciones de YouTube
-            'age_limit': 0,  # Ignorar restricciones de edad
-            'no_check_certificate': True,
-            'ignoreerrors': True,  # Continuar aunque haya errores
-            'extract_flat': False,
-            'writedescription': False,
-            'writecomments': False,
-            'writeautomaticsub': False,
-            'writesubtitles': False,
-        }
-        
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Extraer información primero
-                info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'Canción Descargada')
-                duration = info.get('duration', 0)
-                print(f"📀 Título: {title}")
-                print(f"⏱️ Duración: {duration} segundos")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extraer información primero
+            info = ydl.extract_info(url, download=False)
+            
+            # VERIFICAR QUE INFO NO SEA NONE
+            if info is None:
+                print(f"❌ [{strategy_name}] ydl.extract_info retornó None para URL: {url}")
+                raise Exception("No se pudo extraer información del video")
+            
+            # VERIFICAR QUE INFO SEA UN DICCIONARIO
+            if not isinstance(info, dict):
+                print(f"❌ [{strategy_name}] info no es un diccionario: {type(info)}")
+                raise Exception("Información del video inválida")
+            
+            # VERIFICAR CAMPOS OBLIGATORIOS CON VALIDACIÓN ROBUSTA
+            title = info.get('title', '')
+            if not title or not isinstance(title, str) or len(title.strip()) == 0:
+                print(f"❌ [{strategy_name}] No se pudo obtener el título del video")
+                print(f"❌ Info recibida: {info}")
+                raise Exception("No se pudo obtener información completa del video")
+            
+            # VERIFICAR OTROS CAMPOS CRÍTICOS
+            uploader = info.get('uploader', 'Artista desconocido')
+            duration = info.get('duration', 0)
+            
+            print(f"✅ [{strategy_name}] Info validada correctamente:")
+            print(f"   - Título: {title}")
+            print(f"   - Artista: {uploader}")
+            print(f"   - Duración: {duration}")
+            
+            # Descargar el archivo
+            print(f"🔽 [{strategy_name}] Iniciando descarga...")
+            ydl.download([url])
+            print(f"✅ [{strategy_name}] Descarga completada: {title}")
+            
+            # Buscar el archivo descargado
+            time.sleep(2)  # Esperar a que se complete la escritura
+            
+            # Buscar archivos recientes (últimos 30 segundos)
+            current_time = time.time()
+            recent_files = []
+            
+            for file_path in DOWNLOADS_DIR.glob("*"):
+                if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+                    recent_files.append(file_path)
+            
+            if recent_files:
+                # Tomar el archivo más reciente
+                downloaded_file = max(recent_files, key=os.path.getctime)
+                print(f"📁 [{strategy_name}] Archivo encontrado: {downloaded_file.name}")
                 
-                # Descargar el archivo
-                ydl.download([url])
-                print(f"✅ Descarga completada: {title}")
-                
-                # Buscar el archivo descargado
-                time.sleep(2)  # Esperar a que se complete la escritura
-                
-                # Buscar archivos recientes (últimos 30 segundos)
-                current_time = time.time()
-                recent_files = []
-                
-                for file_path in DOWNLOADS_DIR.glob("*"):
-                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
-                        recent_files.append(file_path)
-                
-                if recent_files:
-                    # Tomar el archivo más reciente
-                    downloaded_file = max(recent_files, key=os.path.getctime)
-                    print(f"📁 Archivo encontrado: {downloaded_file.name}")
+                return {
+                    "status": "success",
+                    "task_id": "bomba-" + str(int(time.time())),
+                    "file": {
+                        "title": title,
+                        "artist": uploader,
+                        "duration": duration,
+                        "thumbnail": info.get('thumbnail', '') if info else '',
+                        "file_path": str(downloaded_file),
+                        "file_size": downloaded_file.stat().st_size,
+                        "filename": downloaded_file.name,
+                        "strategy_used": strategy_name
+                    },
+                    "message": f"Descarga exitosa con {strategy_name}"
+                }
+            else:
+                print(f"❌ [{strategy_name}] No se encontró archivo descargado")
+                raise Exception("Archivo descargado pero no encontrado")
                     
-                    return {
-                        "status": "success",
-                        "task_id": "real-" + str(int(time.time())),
-                        "file": {
-                            "title": title,
-                            "artist": info.get('uploader', 'Artista desconocido'),
-                            "duration": duration,
-                            "thumbnail": info.get('thumbnail', ''),
-                            "file_path": str(downloaded_file),
-                            "file_size": downloaded_file.stat().st_size,
-                            "filename": downloaded_file.name
-                        }
-                    }
-                else:
-                    print("❌ No se encontró archivo descargado")
-                    raise Exception("Archivo descargado pero no encontrado")
-                    
-        except Exception as e:
-            print(f"❌ Error en descarga real: {str(e)}")
-            raise Exception(f"Error en descarga real: {str(e)}")
-        
     except Exception as e:
-        print(f"❌ Error en descarga: {str(e)}")
-        return {"status": "error", "message": f"Error en descarga: {str(e)}"}
+        print(f"❌ [{strategy_name}] Error en descarga: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise Exception(f"Error en {strategy_name}: {str(e)}")
+
+@app.get("/premium-status")
+async def premium_status():
+    """
+    🔥 Estado del backend PREMIUM con logs recientes
+    """
+    return {
+        "status": "PREMIUM ACTIVO",
+        "message": "Backend PREMIUM funcionando - Solo MP3 máxima calidad",
+        "quality": "MP3 320kbps",
+        "features": [
+            "Solo MP3 máxima calidad (320kbps)",
+            "Validación ultra-robusta de datos",
+            "Conversión FFmpeg optimizada",
+            "Bypass agresivo de restricciones",
+            "Configuración premium optimizada"
+        ],
+        "logs": {
+            "railway_url": "https://railway.app/dashboard",
+            "logs_tab": "Ve a Logs en Railway para ver errores en tiempo real",
+            "monitoring": "Todos los errores se registran con traceback completo"
+        },
+        "timestamp": time.time()
+    }
+
+@app.get("/recent-logs")
+async def get_recent_logs():
+    """
+    📊 Obtener logs recientes para debugging
+    """
+    try:
+        # En un entorno real, podrías leer de un archivo de log
+        # Por ahora, retornamos información del sistema
+        import psutil
+        import platform
+        
+        return {
+            "status": "success",
+            "system_info": {
+                "platform": platform.system(),
+                "cpu_percent": psutil.cpu_percent(),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_usage": psutil.disk_usage('/').percent
+            },
+            "instructions": {
+                "railway_logs": "Ve a Railway → Tu proyecto → Logs para ver errores en tiempo real",
+                "error_format": "Todos los errores incluyen: [PREMIUM MP3 320kbps] + traceback completo",
+                "monitoring": "Los logs se actualizan en tiempo real en Railway"
+            },
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error obteniendo logs: {str(e)}",
+            "railway_logs": "Ve directamente a Railway → Logs para ver todos los errores"
+        }
 
 @app.get("/downloads")
 async def list_downloads():
