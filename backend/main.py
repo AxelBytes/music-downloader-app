@@ -340,12 +340,12 @@ async def download_premium_mp3(url: str, quality: str):
             'writesubtitles': False,
         
         # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
-        'socket_timeout': 120,  # Timeout muy largo para calidad premium
-        'retries': 10,  # Múltiples reintentos agresivos
-        'fragment_retries': 10,  # Reintentos de fragmentos agresivos
-        'http_chunk_size': 10485760,  # 10MB chunks para descarga más estable
-        'sleep_interval': 0.5,  # Sleep mínimo
-        'max_sleep_interval': 2,  # Sleep máximo reducido
+        'socket_timeout': 300,  # Timeout SÚPER largo para completar descarga
+        'retries': 15,  # Múltiples reintentos SÚPER agresivos
+        'fragment_retries': 15,  # Reintentos de fragmentos SÚPER agresivos
+        'http_chunk_size': 5242880,  # 5MB chunks para descarga más estable
+        'sleep_interval': 0.1,  # Sleep mínimo
+        'max_sleep_interval': 1,  # Sleep máximo mínimo
         
         # 💣💣💣 SÚPER MEGA BOMBA ANTI-YOUTUBE 💣💣💣
         # 🔥🔥🔥 HEADERS QUE ARRASAN CON TODO 🔥🔥🔥
@@ -463,6 +463,7 @@ async def download_premium_mp3(url: str, quality: str):
         ("PREMIUM MP3 320kbps", ydl_opts),
         ("FALLBACK MP3 256kbps", {**ydl_opts, 'format': 'bestaudio[ext=m4a]/bestaudio/best'}),
         ("EMERGENCY MP3 128kbps", {**ydl_opts, 'format': 'worstaudio/worst'}),
+        ("ULTRA PERSISTENT MP3", {**ydl_opts, 'socket_timeout': 600, 'retries': 20, 'fragment_retries': 20}),
     ]
     
     for strategy_name, strategy_opts in strategies:
