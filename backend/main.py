@@ -340,20 +340,25 @@ async def download_premium_mp3(url: str, quality: str):
             'writesubtitles': False,
         
         # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
-        'socket_timeout': 300,  # Timeout SÚPER largo para completar descarga
-        'retries': 15,  # Múltiples reintentos SÚPER agresivos
-        'fragment_retries': 15,  # Reintentos de fragmentos SÚPER agresivos
-        'http_chunk_size': 5242880,  # 5MB chunks para descarga más estable
-        'sleep_interval': 0.1,  # Sleep mínimo
-        'max_sleep_interval': 1,  # Sleep máximo mínimo
+        'socket_timeout': 600,  # Timeout SÚPER largo para completar descarga
+        'retries': 25,  # Múltiples reintentos SÚPER agresivos
+        'fragment_retries': 25,  # Reintentos de fragmentos SÚPER agresivos
+        'http_chunk_size': 1048576,  # 1MB chunks para descarga más estable
+        'sleep_interval': 0.05,  # Sleep mínimo
+        'max_sleep_interval': 0.5,  # Sleep máximo mínimo
+        # ESTRATEGIA DE FRAGMENTACIÓN ANTI-RATAS
+        'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
+        'keep_fragments': True,  # Mantener fragmentos
+        'fragment_retries': 25,  # Reintentos de fragmentos
+        'skip_unavailable_fragments': True,  # Saltar fragmentos no disponibles
         
-        # 💣💣💣 SÚPER MEGA BOMBA ANTI-YOUTUBE 💣💣💣
-        # 🔥🔥🔥 HEADERS QUE ARRASAN CON TODO 🔥🔥🔥
+        # 💣💣💣 ESTRATEGIA DE ENGAÑO ANTI-RATAS 💣💣💣
+        # 🔥🔥🔥 HEADERS QUE ENGAÑAN A YOUTUBE 🔥🔥🔥
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8,fr;q=0.7,de;q=0.6',
-            'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
@@ -363,7 +368,7 @@ async def download_premium_mp3(url: str, quality: str):
             'Cache-Control': 'max-age=0',
             'DNT': '1',
             'Sec-GPC': '1',
-            'Viewport-Width': '1920',
+            'Viewport-Width': '375',
             'X-Forwarded-For': '192.168.1.100',
             'X-Real-IP': '192.168.1.100',
             'CF-Connecting-IP': '192.168.1.100',
