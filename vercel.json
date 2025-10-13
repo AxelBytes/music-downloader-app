@@ -1,7 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "cd project/backend && pip install -r requirements.txt",
-  "outputDirectory": "project/backend",
   "builds": [
     {
       "src": "project/backend/main.py",
