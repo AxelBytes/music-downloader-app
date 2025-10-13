@@ -259,16 +259,16 @@ async def search_music(query: str):
         for entry in search_results['entries']:
             if entry and isinstance(entry, dict):  # Verificar que entry no sea None y sea un diccionario
                 try:
-                    result = SearchResult(entry)
-                    results.append({
-                        'id': result.id,
-                        'title': result.title,
-                        'artist': result.uploader,
-                        'duration': result.duration,
-                        'thumbnail': result.thumbnail,
-                        'url': result.url,
-                        'view_count': result.view_count
-                    })
+                result = SearchResult(entry)
+                results.append({
+                    'id': result.id,
+                    'title': result.title,
+                    'artist': result.uploader,
+                    'duration': result.duration,
+                    'thumbnail': result.thumbnail,
+                    'url': result.url,
+                    'view_count': result.view_count
+                })
                 except Exception as entry_error:
                     print(f"⚠️ Error procesando entrada: {entry_error}")
                     continue  # Continuar con la siguiente entrada
@@ -289,9 +289,9 @@ async def download_audio(url: str, quality: str = "best"):
     🔥 BACKEND PREMIUM - Solo MP3 máxima calidad (320kbps)
     """
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad: {url}")
-    
-    if not url:
-        raise HTTPException(400, "URL es requerida")
+        
+        if not url:
+            raise HTTPException(400, "URL es requerida")
         
     # 🎯 SOLO ESTRATEGIA PREMIUM - MP3 320kbps
     try:
@@ -310,7 +310,7 @@ async def download_premium_mp3(url: str, quality: str):
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad (320kbps)")
     
     # CONFIGURACIÓN PREMIUM ULTRA-OPTIMIZADA
-    ydl_opts = {
+        ydl_opts = {
         # FORMATO PREMIUM - Solo los mejores formatos de audio
         'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
             'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
@@ -349,8 +349,12 @@ async def download_premium_mp3(url: str, quality: str):
         # ESTRATEGIA DE FRAGMENTACIÓN ANTI-RATAS
         'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
         'keep_fragments': True,  # Mantener fragmentos
-        'fragment_retries': 25,  # Reintentos de fragmentos
+        'fragment_retries': 50,  # Reintentos de fragmentos SÚPER agresivos
         'skip_unavailable_fragments': True,  # Saltar fragmentos no disponibles
+        # EVITAR CONFLICTOS DE RECURSOS
+        'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
+        'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
+        'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
         # CONFUSIÓN ALGORÍTMICA EXTREMA
         'no_color': True,
         'prefer_insecure': False,
@@ -523,6 +527,8 @@ async def download_premium_mp3(url: str, quality: str):
         ("ALGORITHM DISRUPTION MP3", {**ydl_opts, 'http_chunk_size': 262144, 'sleep_interval': 0.005, 'max_sleep_interval': 0.05}),
         ("ALGORITHM CONFUSION MP3", {**ydl_opts, 'http_chunk_size': 131072, 'sleep_interval': 0.002, 'max_sleep_interval': 0.02}),
         ("ULTRA CONFUSION MP3", {**ydl_opts, 'http_chunk_size': 65536, 'sleep_interval': 0.001, 'max_sleep_interval': 0.01}),
+        ("DEVICE RESOURCE BUSY FIX MP3", {**ydl_opts, 'fragment_retries': 100, 'retries': 100, 'socket_timeout': 1200}),
+        ("ULTRA PERSISTENT RESOURCE MP3", {**ydl_opts, 'fragment_retries': 200, 'retries': 200, 'socket_timeout': 1800}),
     ]
     
     for strategy_name, strategy_opts in strategies:
@@ -541,7 +547,7 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
     """
     🔥 PREMIUM: Ejecutar descarga MP3 de máxima calidad
     """
-    try:
+        try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # Extraer información primero
                 info = ydl.extract_info(url, download=False)
@@ -565,27 +571,27 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
             
             # VERIFICAR OTROS CAMPOS CRÍTICOS
             uploader = info.get('uploader', 'Artista desconocido')
-            duration = info.get('duration', 0)
+                duration = info.get('duration', 0)
             
             print(f"✅ [{strategy_name}] Info validada correctamente:")
             print(f"   - Título: {title}")
             print(f"   - Artista: {uploader}")
             print(f"   - Duración: {duration}")
-            
-            # Descargar el archivo
+                
+                # Descargar el archivo
             print(f"🔽 [{strategy_name}] Iniciando descarga...")
-            ydl.download([url])
+                ydl.download([url])
             print(f"✅ [{strategy_name}] Descarga completada: {title}")
-            
-            # Buscar el archivo descargado
-            time.sleep(2)  # Esperar a que se complete la escritura
-            
-            # Buscar archivos recientes (últimos 30 segundos)
-            current_time = time.time()
-            recent_files = []
-            
-            for file_path in DOWNLOADS_DIR.glob("*"):
-                if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+                
+                # Buscar el archivo descargado
+                time.sleep(2)  # Esperar a que se complete la escritura
+                
+                # Buscar archivos recientes (últimos 30 segundos)
+                current_time = time.time()
+                recent_files = []
+                
+                for file_path in DOWNLOADS_DIR.glob("*"):
+                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
                         recent_files.append(file_path)
                 
                 if recent_files:
@@ -612,7 +618,7 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
                     print(f"❌ [{strategy_name}] No se encontró archivo descargado")
                     raise Exception("Archivo descargado pero no encontrado")
                     
-    except Exception as e:
+        except Exception as e:
         print(f"❌ [{strategy_name}] Error en descarga: {str(e)}")
         import traceback
         traceback.print_exc()
