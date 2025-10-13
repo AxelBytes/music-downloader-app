@@ -259,11 +259,11 @@ async def search_music(query: str):
         for entry in search_results['entries']:
             if entry and isinstance(entry, dict):  # Verificar que entry no sea None y sea un diccionario
                 try:
-                    result = SearchResult(entry)
-                    results.append({
-                        'id': result.id,
-                        'title': result.title,
-                        'artist': result.uploader,
+                result = SearchResult(entry)
+                results.append({
+                    'id': result.id,
+                    'title': result.title,
+                    'artist': result.uploader,
                     'duration': result.duration,
                     'thumbnail': result.thumbnail,
                     'url': result.url,
@@ -289,10 +289,10 @@ async def download_audio(url: str, quality: str = "best"):
     🔥 BACKEND PREMIUM - Solo MP3 máxima calidad (320kbps)
     """
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad: {url}")
-    
-    if not url:
-        raise HTTPException(400, "URL es requerida")
-    
+        
+        if not url:
+            raise HTTPException(400, "URL es requerida")
+        
     # 🎯 SOLO ESTRATEGIA PREMIUM - MP3 320kbps
     try:
         print(f"🔥 [PREMIUM] Descargando MP3 de máxima calidad...")
@@ -310,19 +310,19 @@ async def download_premium_mp3(url: str, quality: str):
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad (320kbps)")
     
     # CONFIGURACIÓN PREMIUM ULTRA-OPTIMIZADA
-    ydl_opts = {
+        ydl_opts = {
         # FORMATO PREMIUM - Solo los mejores formatos de audio
         'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
-        'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
-        'writethumbnail': False,
-        'writeinfojson': False,
-        'quiet': False,
-        'no_warnings': False,
+            'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
+            'writethumbnail': False,
+            'writeinfojson': False,
+            'quiet': False,
+            'no_warnings': False,
         
         # CONVERSIÓN A MP3 PREMIUM
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
             'preferredquality': '320',  # MÁXIMA CALIDAD MP3
         }],
         
@@ -331,13 +331,13 @@ async def download_premium_mp3(url: str, quality: str):
         
         # BYPASS AGRESIVO PARA CALIDAD PREMIUM
         'age_limit': 0,
-        'no_check_certificate': True,
+            'no_check_certificate': True,
         'ignoreerrors': True,
-        'extract_flat': False,
-        'writedescription': False,
-        'writecomments': False,
-        'writeautomaticsub': False,
-        'writesubtitles': False,
+            'extract_flat': False,
+            'writedescription': False,
+            'writecomments': False,
+            'writeautomaticsub': False,
+            'writesubtitles': False,
         
         # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
         'socket_timeout': 90,  # Timeout largo para calidad premium
@@ -347,12 +347,13 @@ async def download_premium_mp3(url: str, quality: str):
         'sleep_interval': 1,
         'max_sleep_interval': 5,
         
-        # HEADERS ULTRA-AGRESIVOS PARA BYPASS YOUTUBE
+        # 💣💣💣 SÚPER MEGA BOMBA ANTI-YOUTUBE 💣💣💣
+        # 🔥🔥🔥 HEADERS QUE ARRASAN CON TODO 🔥🔥🔥
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8,fr;q=0.7,de;q=0.6',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
@@ -360,24 +361,39 @@ async def download_premium_mp3(url: str, quality: str):
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
+            'DNT': '1',
+            'Sec-GPC': '1',
+            'Viewport-Width': '1920',
+            'X-Forwarded-For': '192.168.1.100',
+            'X-Real-IP': '192.168.1.100',
+            'CF-Connecting-IP': '192.168.1.100',
+            'CF-Ray': '8a1b2c3d4e5f6g7h',
+            'CF-Visitor': '{"scheme":"https"}',
         },
-        # BYPASS ULTRA-AGRESIVO PARA YOUTUBE
+        # 💣💣💣 BYPASS QUE ARRASA CON YOUTUBE 💣💣💣
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
-                'player_skip': ['configs', 'webpage'],
+                'player_skip': ['configs', 'webpage', 'js', 'api'],
                 'max_comments': [0],
-                'player_client': ['android', 'web', 'ios', 'tv_embedded'],
+                'player_client': ['android', 'web', 'ios', 'tv_embedded', 'tv_leanback', 'media_connect_frontend'],
                 'player_url': None,
                 'api_key': None,
                 'client_version': None,
+                'innertube_host': 'www.youtube.com',
+                'innertube_key': None,
+                'innertube_context': None,
             }
         },
-        # CONFIGURACIÓN ANTI-BOT ULTRA-ROBUSTA
-        'sleep_interval': 3,
-        'max_sleep_interval': 8,
-        'sleep_interval_requests': 2,
-        'sleep_interval_subtitles': 3,
+        # 💣💣💣 CONFIGURACIÓN ANTI-BOT QUE ARRASA CON TODO 💣💣💣
+        'sleep_interval': 1,
+        'max_sleep_interval': 3,
+        'sleep_interval_requests': 1,
+        'sleep_interval_subtitles': 1,
+        'sleep_interval_requests': 1,
+        'sleep_interval_subtitles': 1,
+        'sleep_interval_requests': 1,
+        'sleep_interval_subtitles': 1,
         # ROTACIÓN DE USER-AGENTS Y BYPASS GEO
         'geo_bypass': True,
         'geo_bypass_country': 'US',
@@ -409,7 +425,22 @@ async def download_premium_mp3(url: str, quality: str):
         'extract_flat': False,
         'playlistend': None,
         'playliststart': 1,
-        # ESTRATEGIAS ADICIONALES PARA BYPASS
+        # 💣💣💣 ESTRATEGIAS QUE ARRASAN CON TODO 💣💣💣
+        'youtube_use_native': False,
+        'youtube_use_native_embed': False,
+        'youtube_use_native_ios': False,
+        'youtube_use_native_android': False,
+        # CONFIGURACIÓN DE EXTRACTOR
+        'youtube_extract_flat': False,
+        'youtube_skip_download': False,
+        # 💣💣💣 CONFIGURACIONES ADICIONALES QUE ARRASAN 💣💣💣
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        # 💣💣💣 BYPASS ADICIONAL QUE ARRASA 💣💣💣
         'youtube_use_native': False,
         'youtube_use_native_embed': False,
         'youtube_use_native_ios': False,
@@ -425,10 +456,10 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
     """
     🔥 PREMIUM: Ejecutar descarga MP3 de máxima calidad
     """
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Extraer información primero
-            info = ydl.extract_info(url, download=False)
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Extraer información primero
+                info = ydl.extract_info(url, download=False)
             
             # VERIFICAR QUE INFO NO SEA NONE
             if info is None:
@@ -449,54 +480,54 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
             
             # VERIFICAR OTROS CAMPOS CRÍTICOS
             uploader = info.get('uploader', 'Artista desconocido')
-            duration = info.get('duration', 0)
+                duration = info.get('duration', 0)
             
             print(f"✅ [{strategy_name}] Info validada correctamente:")
             print(f"   - Título: {title}")
             print(f"   - Artista: {uploader}")
             print(f"   - Duración: {duration}")
-            
-            # Descargar el archivo
-            print(f"🔽 [{strategy_name}] Iniciando descarga...")
-            ydl.download([url])
-            print(f"✅ [{strategy_name}] Descarga completada: {title}")
-            
-            # Buscar el archivo descargado
-            time.sleep(2)  # Esperar a que se complete la escritura
-            
-            # Buscar archivos recientes (últimos 30 segundos)
-            current_time = time.time()
-            recent_files = []
-            
-            for file_path in DOWNLOADS_DIR.glob("*"):
-                if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
-                    recent_files.append(file_path)
-            
-            if recent_files:
-                # Tomar el archivo más reciente
-                downloaded_file = max(recent_files, key=os.path.getctime)
-                print(f"📁 [{strategy_name}] Archivo encontrado: {downloaded_file.name}")
                 
-                return {
-                    "status": "success",
+                # Descargar el archivo
+            print(f"🔽 [{strategy_name}] Iniciando descarga...")
+                ydl.download([url])
+            print(f"✅ [{strategy_name}] Descarga completada: {title}")
+                
+                # Buscar el archivo descargado
+                time.sleep(2)  # Esperar a que se complete la escritura
+                
+                # Buscar archivos recientes (últimos 30 segundos)
+                current_time = time.time()
+                recent_files = []
+                
+                for file_path in DOWNLOADS_DIR.glob("*"):
+                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+                        recent_files.append(file_path)
+                
+                if recent_files:
+                    # Tomar el archivo más reciente
+                    downloaded_file = max(recent_files, key=os.path.getctime)
+                print(f"📁 [{strategy_name}] Archivo encontrado: {downloaded_file.name}")
+                    
+                    return {
+                        "status": "success",
                     "task_id": "bomba-" + str(int(time.time())),
-                    "file": {
-                        "title": title,
+                        "file": {
+                            "title": title,
                         "artist": uploader,
-                        "duration": duration,
+                            "duration": duration,
                         "thumbnail": info.get('thumbnail', '') if info else '',
-                        "file_path": str(downloaded_file),
-                        "file_size": downloaded_file.stat().st_size,
+                            "file_path": str(downloaded_file),
+                            "file_size": downloaded_file.stat().st_size,
                         "filename": downloaded_file.name,
                         "strategy_used": strategy_name
                     },
                     "message": f"Descarga exitosa con {strategy_name}"
-                }
-            else:
+                    }
+                else:
                 print(f"❌ [{strategy_name}] No se encontró archivo descargado")
-                raise Exception("Archivo descargado pero no encontrado")
+                    raise Exception("Archivo descargado pero no encontrado")
                     
-    except Exception as e:
+        except Exception as e:
         print(f"❌ [{strategy_name}] Error en descarga: {str(e)}")
         import traceback
         traceback.print_exc()
