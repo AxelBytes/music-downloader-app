@@ -340,12 +340,26 @@ async def download_premium_mp3(url: str, quality: str):
             'writesubtitles': False,
         
         # CONFIGURACIÓN ULTRA-ROBUSTA PREMIUM
-        'socket_timeout': 600,  # Timeout SÚPER largo para completar descarga
-        'retries': 25,  # Múltiples reintentos SÚPER agresivos
-        'fragment_retries': 25,  # Reintentos de fragmentos SÚPER agresivos
+        'socket_timeout': 1800,  # Timeout SÚPER largo para completar descarga
+        'retries': 100,  # Múltiples reintentos SÚPER agresivos
+        'fragment_retries': 100,  # Reintentos de fragmentos SÚPER agresivos
         'http_chunk_size': 1048576,  # 1MB chunks para descarga más estable
-        'sleep_interval': 0.05,  # Sleep mínimo
-        'max_sleep_interval': 0.5,  # Sleep máximo mínimo
+        'sleep_interval': 0.01,  # Sleep mínimo
+        'max_sleep_interval': 0.1,  # Sleep máximo mínimo
+        # OPCIONES SÚPER AGRESIVAS ADICIONALES
+        'no_color': True,
+        'prefer_insecure': False,
+        'prefer_ffmpeg': True,
+        'extract_flat': False,
+        'playlistend': None,
+        'playliststart': 1,
+        # OPCIONES DE BYPASS EXTREMO
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
         # ESTRATEGIA DE FRAGMENTACIÓN ANTI-RATAS
         'concurrent_fragment_downloads': 1,  # Un fragmento a la vez
         'keep_fragments': True,  # Mantener fragmentos
@@ -420,20 +434,20 @@ async def download_premium_mp3(url: str, quality: str):
             'X-YouTube-Client-App-Install-Gclsrc': 'organic',
             'X-YouTube-Client-App-Install-Gclsrc': 'organic',
         },
-        # 💣💣💣 ESTRATEGIA DE CONFUSIÓN ALGORÍTMICA 💣💣💣
+        # 💣💣💣 ESTRATEGIA SÚPER AGRESIVA YT-DLP 💣💣💣
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
-                'player_skip': ['configs', 'webpage', 'js', 'api'],
+                'player_skip': ['configs', 'webpage', 'js', 'api', 'player'],
                 'max_comments': [0],
-                'player_client': ['android', 'web', 'ios', 'tv_embedded', 'tv_leanback', 'media_connect_frontend'],
+                'player_client': ['android', 'web', 'ios', 'tv_embedded', 'tv_leanback', 'media_connect_frontend', 'mweb'],
                 'player_url': None,
                 'api_key': None,
                 'client_version': None,
                 'innertube_host': 'www.youtube.com',
                 'innertube_key': None,
                 'innertube_context': None,
-                # ESTRATEGIA DE CONFUSIÓN - CONFUNDIR AL ALGORITMO
+                # ESTRATEGIA SÚPER AGRESIVA - OPCIONES AVANZADAS
                 'extract_flat': False,
                 'youtube_include_dash_manifest': False,
                 'youtube_include_hls_manifest': False,
@@ -441,7 +455,14 @@ async def download_premium_mp3(url: str, quality: str):
                 'youtube_use_native_embed': False,
                 'youtube_use_native_ios': False,
                 'youtube_use_native_android': False,
-                # CONFUSIÓN ALGORÍTMICA EXTREMA
+                # OPCIONES SÚPER AGRESIVAS
+                'youtube_skip_dash_manifest': True,
+                'youtube_skip_hls_manifest': True,
+                'youtube_include_dash_manifest': False,
+                'youtube_include_hls_manifest': False,
+                'youtube_include_dash_manifest': False,
+                'youtube_include_hls_manifest': False,
+                # OPCIONES AVANZADAS DE BYPASS
                 'youtube_skip_dash_manifest': True,
                 'youtube_skip_hls_manifest': True,
                 'youtube_skip_dash_manifest': True,
