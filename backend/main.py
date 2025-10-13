@@ -310,7 +310,7 @@ async def download_premium_mp3(url: str, quality: str):
     print(f"🔥 [PREMIUM] Descarga MP3 máxima calidad (320kbps)")
     
     # CONFIGURACIÓN PREMIUM ULTRA-OPTIMIZADA
-        ydl_opts = {
+    ydl_opts = {
         # FORMATO PREMIUM - Solo los mejores formatos de audio
         'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
             'outtmpl': str(DOWNLOADS_DIR / '%(title)s.%(ext)s'),
@@ -456,7 +456,7 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
     """
     🔥 PREMIUM: Ejecutar descarga MP3 de máxima calidad
     """
-        try:
+    try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # Extraer información primero
                 info = ydl.extract_info(url, download=False)
@@ -480,40 +480,40 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
             
             # VERIFICAR OTROS CAMPOS CRÍTICOS
             uploader = info.get('uploader', 'Artista desconocido')
-                duration = info.get('duration', 0)
+            duration = info.get('duration', 0)
             
             print(f"✅ [{strategy_name}] Info validada correctamente:")
             print(f"   - Título: {title}")
             print(f"   - Artista: {uploader}")
             print(f"   - Duración: {duration}")
-                
-                # Descargar el archivo
+            
+            # Descargar el archivo
             print(f"🔽 [{strategy_name}] Iniciando descarga...")
-                ydl.download([url])
+            ydl.download([url])
             print(f"✅ [{strategy_name}] Descarga completada: {title}")
-                
-                # Buscar el archivo descargado
-                time.sleep(2)  # Esperar a que se complete la escritura
-                
-                # Buscar archivos recientes (últimos 30 segundos)
-                current_time = time.time()
-                recent_files = []
-                
-                for file_path in DOWNLOADS_DIR.glob("*"):
-                    if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
+            
+            # Buscar el archivo descargado
+            time.sleep(2)  # Esperar a que se complete la escritura
+            
+            # Buscar archivos recientes (últimos 30 segundos)
+            current_time = time.time()
+            recent_files = []
+            
+            for file_path in DOWNLOADS_DIR.glob("*"):
+                if file_path.is_file() and (current_time - file_path.stat().st_mtime) < 30:
                         recent_files.append(file_path)
                 
                 if recent_files:
                     # Tomar el archivo más reciente
                     downloaded_file = max(recent_files, key=os.path.getctime)
-                print(f"📁 [{strategy_name}] Archivo encontrado: {downloaded_file.name}")
+                    print(f"📁 [{strategy_name}] Archivo encontrado: {downloaded_file.name}")
                     
                     return {
                         "status": "success",
-                    "task_id": "bomba-" + str(int(time.time())),
+                        "task_id": "bomba-" + str(int(time.time())),
                         "file": {
                             "title": title,
-                        "artist": uploader,
+                            "artist": uploader,
                             "duration": duration,
                         "thumbnail": info.get('thumbnail', '') if info else '',
                             "file_path": str(downloaded_file),
@@ -524,10 +524,10 @@ async def execute_premium_download(url: str, ydl_opts: dict, strategy_name: str)
                     "message": f"Descarga exitosa con {strategy_name}"
                     }
                 else:
-                print(f"❌ [{strategy_name}] No se encontró archivo descargado")
+                    print(f"❌ [{strategy_name}] No se encontró archivo descargado")
                     raise Exception("Archivo descargado pero no encontrado")
                     
-        except Exception as e:
+    except Exception as e:
         print(f"❌ [{strategy_name}] Error en descarga: {str(e)}")
         import traceback
         traceback.print_exc()
