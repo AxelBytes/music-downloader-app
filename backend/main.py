@@ -351,6 +351,20 @@ async def download_premium_mp3(url: str, quality: str):
         'keep_fragments': True,  # Mantener fragmentos
         'fragment_retries': 25,  # Reintentos de fragmentos
         'skip_unavailable_fragments': True,  # Saltar fragmentos no disponibles
+        # CONFUSIÓN ALGORÍTMICA EXTREMA
+        'no_color': True,
+        'prefer_insecure': False,
+        'prefer_ffmpeg': True,
+        'extract_flat': False,
+        'playlistend': None,
+        'playliststart': 1,
+        # CONFUSIÓN ADICIONAL
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
+        'youtube_include_dash_manifest': False,
+        'youtube_include_hls_manifest': False,
         
         # 💣💣💣 ESTRATEGIA DE DISPERSIÓN ANTI-RATAS 💣💣💣
         # 🔥🔥🔥 HEADERS QUE DISPERSAN A YOUTUBE 🔥🔥🔥
@@ -375,7 +389,7 @@ async def download_premium_mp3(url: str, quality: str):
             'CF-Ray': '8a1b2c3d4e5f6g7h',
             'CF-Visitor': '{"scheme":"https"}',
         },
-        # 💣💣💣 ESTRATEGIA RADICAL ANTI-BLOQUEO 💣💣💣
+        # 💣💣💣 ESTRATEGIA DE CONFUSIÓN ALGORÍTMICA 💣💣💣
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
@@ -388,7 +402,7 @@ async def download_premium_mp3(url: str, quality: str):
                 'innertube_host': 'www.youtube.com',
                 'innertube_key': None,
                 'innertube_context': None,
-                # ESTRATEGIA RADICAL - BYPASS TOTAL
+                # ESTRATEGIA DE CONFUSIÓN - CONFUNDIR AL ALGORITMO
                 'extract_flat': False,
                 'youtube_include_dash_manifest': False,
                 'youtube_include_hls_manifest': False,
@@ -396,6 +410,13 @@ async def download_premium_mp3(url: str, quality: str):
                 'youtube_use_native_embed': False,
                 'youtube_use_native_ios': False,
                 'youtube_use_native_android': False,
+                # CONFUSIÓN ALGORÍTMICA EXTREMA
+                'youtube_skip_dash_manifest': True,
+                'youtube_skip_hls_manifest': True,
+                'youtube_skip_dash_manifest': True,
+                'youtube_skip_hls_manifest': True,
+                'youtube_skip_dash_manifest': True,
+                'youtube_skip_hls_manifest': True,
             }
         },
         # 💣💣💣 CONFIGURACIÓN ANTI-BOT QUE ARRASA CON TODO 💣💣💣
@@ -471,6 +492,10 @@ async def download_premium_mp3(url: str, quality: str):
         ("ULTRA PERSISTENT MP3", {**ydl_opts, 'socket_timeout': 600, 'retries': 20, 'fragment_retries': 20}),
         ("MAC DISPERSION MP3", {**ydl_opts, 'http_chunk_size': 2097152, 'sleep_interval': 0.1, 'max_sleep_interval': 0.3}),
         ("MICRO CHUNKS MP3", {**ydl_opts, 'http_chunk_size': 524288, 'sleep_interval': 0.02, 'max_sleep_interval': 0.1}),
+        ("CONFUSION ALGORITHM MP3", {**ydl_opts, 'sleep_interval': 0.001, 'max_sleep_interval': 0.01, 'retries': 50}),
+        ("ALGORITHM DISRUPTION MP3", {**ydl_opts, 'http_chunk_size': 262144, 'sleep_interval': 0.005, 'max_sleep_interval': 0.05}),
+        ("ALGORITHM CONFUSION MP3", {**ydl_opts, 'http_chunk_size': 131072, 'sleep_interval': 0.002, 'max_sleep_interval': 0.02}),
+        ("ULTRA CONFUSION MP3", {**ydl_opts, 'http_chunk_size': 65536, 'sleep_interval': 0.001, 'max_sleep_interval': 0.01}),
     ]
     
     for strategy_name, strategy_opts in strategies:
