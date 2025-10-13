@@ -347,26 +347,54 @@ async def download_premium_mp3(url: str, quality: str):
         'sleep_interval': 1,
         'max_sleep_interval': 5,
         
-        # HEADERS PREMIUM PERSONALIZADOS PARA BYPASS YOUTUBE
+        # HEADERS ULTRA-AGRESIVOS PARA BYPASS YOUTUBE
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
         },
-        # BYPASS AGRESIVO PARA YOUTUBE
+        # BYPASS ULTRA-AGRESIVO PARA YOUTUBE
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
-                'player_skip': ['configs'],
+                'player_skip': ['configs', 'webpage'],
                 'max_comments': [0],
+                'player_client': ['android', 'web'],
             }
         },
-        # CONFIGURACIÓN ANTI-BOT
-        'sleep_interval': 2,
-        'max_sleep_interval': 5,
-        'sleep_interval_requests': 1,
+        # CONFIGURACIÓN ANTI-BOT ULTRA-ROBUSTA
+        'sleep_interval': 3,
+        'max_sleep_interval': 8,
+        'sleep_interval_requests': 2,
+        'sleep_interval_subtitles': 3,
+        # ROTACIÓN DE USER-AGENTS Y BYPASS GEO
+        'geo_bypass': True,
+        'geo_bypass_country': 'US',
+        # COOKIES Y SESIÓN AVANZADA
+        'cookiesfrombrowser': None,
+        'nocheckcertificate': True,
+        # ESTRATEGIAS ANTI-DETECCIÓN ADICIONALES
+        'referer': 'https://www.youtube.com/',
+        'origin': 'https://www.youtube.com',
+        'sec_ch_ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'sec_ch_ua_mobile': '?0',
+        'sec_ch_ua_platform': '"Windows"',
+        # BYPASS ADICIONAL PARA YOUTUBE
+        'extractor_retries': 3,
+        'fragment_retries': 3,
+        'skip_unavailable_fragments': True,
+        # SIMULACIÓN DE NAVEGADOR REAL
+        'simulate': True,
+        'min_filesize': 0,
+        'max_filesize': None,
     }
     
     return await execute_premium_download(url, ydl_opts, "PREMIUM MP3 320kbps")
