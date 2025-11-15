@@ -196,7 +196,7 @@ async def search_music(query: str):
         raise HTTPException(status_code=500, detail=f"Error en búsqueda: {str(e)}")
 
 @app.post("/download")
-async def download_command(song_name: str = Query(default="")):
+async def download_command(song_name: str):
     """Buscar canción y obtener comando yt-dlp para descargar"""
     try:
         if not song_name:
