@@ -189,35 +189,77 @@ async def search_music(query: str):
         raise HTTPException(status_code=500, detail=f"Error en búsqueda: {str(e)}")
 
 @app.post("/download")
-async def download_music(url: str, quality: str = "best", background_tasks: BackgroundTasks = None):
-    """Descargar música"""
+async def download_music(song_name: str):
+    """Buscar canción y obtener comando yt-dlp para descargar"""
     try:
-        print(f"🔽 Iniciando descarga: {url}")
+        if not song_name:
+            raise HTTPException(400, "song_name es requerido")
         
-        # Crear tarea de descarga
-        task = DownloadTask(url, quality)
-        download_tasks[task.id] = task
+        song_name = song_name.strip()
+        if len(song_name) < 2:
+            raise HTTPException(400, "Nombre de canción muy corto")
         
-        # Ejecutar descarga
-        result = await download_premium_mp3(url)
+        import requests
+        from config import INVIDIOUS_SERVERS
         
-        if result.get("status") == "success":
-            task.status = "completed"
-            task.file_path = result.get("file_path")
-            return {
-                "task_id": task.id,
-                "status": "success",
-                "file_path": result.get("file_path"),
-                "title": result.get("title"),
-                "duration": result.get("duration"),
-                "uploader": result.get("uploader")
-            }
-        else:
-            task.status = "failed"
-            task.error = result.get("error")
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
+        print(f"🔍 Buscando: {song_name}")
+        
+        # Buscar con Invidious
+        for server in INVIDIOUS_SERVERS:
+            try:
+                search_url = f"{server}/api/v1/search?q={song_name}&type=video"
+                response = requests.get(search_url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Encontrar primer resultado válido
+                    for item in data:
+                        if item.get('type') == 'video':
+                            video_id = item.get('videoId')
+                            title = item.get('title', 'Canción')
+                            author = item.get('author', 'Artista')
+                            duration = item.get('lengthSeconds', 0)
+                            
+                            youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+                            yt_dlp_command = f'yt-dlp -x --audio-format mp3 --audio-quality 320k "{youtube_url}"'
+                            
+                            print(f"✅ Encontrado: {title}")
+                            
+                            return {
+                                "status": "success",
+                                "song": {
+                                    "title": title,
+                                    "artist": author,
+                                    "duration": duration,
+                                    "video_id": video_id,
+                                    "thumbnail": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg"
+                                },
+                                "youtube_url": youtube_url,
+                                "download_command": yt_dlp_command,
+                                "instructions": {
+                                    "title": "Descarga en tu máquina",
+                                    "step1": "Instala yt-dlp: pip install yt-dlp",
+                                    "step2": "Copia y ejecuta este comando:",
+                                    "command": yt_dlp_command,
+                                    "quality": "MP3 320kbps (máxima calidad)"
+                                }
+                            }
+                    
+                    # Si no encontró videos en este servidor, continúa
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠️ Error en {server}: {str(e)}")
+                continue
+        
+        raise HTTPException(404, f"No se encontraron resultados para: {song_name}")
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Error: {e}")
+        raise HTTPException(500, f"Error: {str(e)}")
         print(f"❌ Error en descarga: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error en descarga: {str(e)}")
 
