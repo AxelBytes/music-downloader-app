@@ -229,7 +229,7 @@ async def get_download_command(song_name: str = Query(default="")):
                             duration = item.get('lengthSeconds', 0)
                             
                             youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-                            yt_dlp_command = f'yt-dlp -x --audio-format mp3 --audio-quality 320k "{youtube_url}"'
+                            yt_dlp_command = f'yt-dlp -x --audio-format mp3 --audio-quality 128k "{youtube_url}"'
                             
                             print(f"✅ Encontrado: {title}")
                             
@@ -249,7 +249,7 @@ async def get_download_command(song_name: str = Query(default="")):
                                     "step1": "Instala yt-dlp: pip install yt-dlp",
                                     "step2": "Copia y ejecuta este comando:",
                                     "command": yt_dlp_command,
-                                    "quality": "MP3 320kbps (máxima calidad)"
+                                    "quality": "MP3 128kbps"
                                 }
                             }
                     
