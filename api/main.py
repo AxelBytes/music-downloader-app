@@ -196,12 +196,15 @@ async def search_music(query: str):
         raise HTTPException(status_code=500, detail=f"Error en búsqueda: {str(e)}")
 
 @app.post("/download")
-async def download_music(request: DownloadRequest):
+async def download_music(song_name: str = Query(default="")):
     """Buscar canción y obtener comando yt-dlp para descargar"""
     try:
-        song_name = request.song_name.strip() if request.song_name else ""
-        if not song_name or len(song_name) < 2:
-            raise HTTPException(400, "Nombre de canción inválido")
+        if not song_name:
+            raise HTTPException(400, "song_name es requerido")
+        
+        song_name = song_name.strip()
+        if len(song_name) < 2:
+            raise HTTPException(400, "Nombre de canción muy corto")
         
         import requests
         from config import INVIDIOUS_SERVERS
