@@ -1,0 +1,32 @@
+# VARIABLES DE ENTORNO PARA VERCEL
+# Agregar en: Settings → Environment Variables
+
+# 1. PYTHON_VERSION
+PYTHON_VERSION=3.9
+
+# 2. FFMPEG_PATH (si es necesario)
+FFMPEG_PATH=/usr/local/bin/ffmpeg
+
+# 3. YT_DLP_VERSION (para asegurar la versión correcta)
+YT_DLP_VERSION=2025.09.26
+
+# 4. DOWNLOADS_DIR (directorio de descargas)
+DOWNLOADS_DIR=/tmp/downloads
+
+# 5. MAX_FILE_SIZE (tamaño máximo de archivo)
+MAX_FILE_SIZE=100MB
+
+# 6. REQUEST_TIMEOUT (timeout de requests)
+REQUEST_TIMEOUT=1800
+
+# 7. DEBUG_MODE (para logs detallados)
+DEBUG_MODE=true
+
+# 8. YOUTUBE_BYPASS (activar bypass)
+YOUTUBE_BYPASS=true
+
+# 9. SLEEP_INTERVAL (intervalo de sleep)
+SLEEP_INTERVAL=0.01
+
+# 10. MAX_RETRIES (máximo de reintentos)
+MAX_RETRIES=100

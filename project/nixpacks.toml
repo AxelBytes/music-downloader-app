@@ -1,0 +1,5 @@
+[providers]
+providers = ["python"]
+
+[system]
+packages = ["ffmpeg"]

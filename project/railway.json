@@ -1,0 +1,9 @@
+{
+  "service": {
+    "name": "groovify-api",
+    "image": "python:3.11",
+    "startCommand": "cd backend && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port $PORT",
+    "port": 8000,
+    "domains": ["groovify-api.railway.app"]
+  }
+}
